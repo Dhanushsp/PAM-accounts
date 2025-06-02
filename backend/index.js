@@ -36,7 +36,7 @@ app.get('/', (req, res) => {
 // app.listen(5000, '0.0.0.0', () => {
 //   console.log('Server running on port 5000');
 // });
-app.listen(process.env.PORT || 80, () => console.log("Server started on port 5000"));
+app.listen(process.env.PORT || 5000, () => console.log("Server started on port 5000"));
 
 // Function to create a default admin if none exists
 async function createDefaultAdmin() {
