@@ -21,11 +21,18 @@ mongoose.connect(process.env.MONGO_URL)
   })
   .catch(err => console.error(err));
 
+
+
 app.use("/api", authRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/addproducts", addproductsRoutes);
 app.use("/api/products", addproductsRoutes)
 app.use("/api/sales", salesRoutes);
+
+app.get('/', (req, res) => {
+  res.send('API is working');
+});
+
 
 app.listen(process.env.PORT || 5000, () => console.log("Server started on port 5000"));
 
