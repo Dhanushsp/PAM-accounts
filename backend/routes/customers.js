@@ -75,5 +75,16 @@ router.get('/customers', auth, async (req, res) => {
   }
 });
 
+// GET /api/customers/:id
+router.get('/:id', async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id).lean();
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    res.json(customer);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 export default router;
