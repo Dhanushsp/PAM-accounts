@@ -50,8 +50,10 @@ export default function Home({ token }) {
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
-      {/* Logout Button */}
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-700 tracking-wide">
+          PAM<span className="text-indigo-500">-Accounts</span>
+        </h1>
         <button
           onClick={handleLogout}
           className="bg-gradient-to-br from-red-900 via-red-800 to-black text-white px-4 py-2 rounded-md shadow-sm transition"
@@ -59,6 +61,7 @@ export default function Home({ token }) {
           Logout
         </button>
       </div>
+
 
       {/* Search & Sort */}
       <div className="mb-4 space-y-2">
@@ -105,7 +108,7 @@ export default function Home({ token }) {
         <div className="flex justify-between gap-3">
           <button
             onClick={() => setShowSalesPopup(true)}
-            className="flex-1 bg-indigo-600 text-white py-2 rounded-md shadow hover:bg-indigo-700 transition"
+            className="flex-1 bg-green-600 text-white py-2 rounded-md shadow hover:bg-indigo-700 transition"
           >
             + Sale
           </button>
@@ -117,7 +120,7 @@ export default function Home({ token }) {
           </button>
           <button
             onClick={() => setShowPopup(true)}
-            className="flex-1 bg-green-600 text-white py-2 rounded-md shadow hover:bg-green-700 transition"
+            className="flex-1 bg-indigo-600 text-white py-2 rounded-md shadow hover:bg-green-700 transition"
           >
             + Customer
           </button>
