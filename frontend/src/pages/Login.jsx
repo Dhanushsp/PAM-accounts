@@ -5,9 +5,11 @@ export default function Login({ setToken }) {
   const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
 
+    const BACKEND_URL = import.meta.env.VITE_API_BASE_URL;
+
   const handleLogin = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/api/login", { mobile, password });
+      const res = await axios.post(`${BACKEND_URL}/api/login`, { mobile, password });
       setToken(res.data.token);
     } catch {
       alert("Login failed");
