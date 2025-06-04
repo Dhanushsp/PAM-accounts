@@ -20,7 +20,11 @@ const customerSchema = new mongoose.Schema({
       totalPrice: Number,
       paymentMethod: String,
       amountReceived: Number,
-      date: Date
+      date: {
+        type: Date,
+        default: Date.now
+      }
+
     }
   ]
 });
