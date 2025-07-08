@@ -32,19 +32,20 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-      <div className="bg-gray-900 p-6 rounded-xl w-96 shadow-lg relative">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl w-full max-w-xs sm:max-w-sm shadow-xl relative overflow-y-auto max-h-[90vh]">
         <button
           onClick={onClose}
-          className="absolute top-2 right-3 text-gray-400 hover:text-white text-xl"
+          className="absolute top-2 right-3 text-gray-400 hover:text-black text-2xl font-bold focus:outline-none"
+          aria-label="Close"
         >
           &times;
         </button>
-        <h2 className="text-xl mb-4 font-semibold text-white">Add Customer</h2>
+        <h2 className="text-xl mb-4 font-bold text-blue-700 text-center">Add Customer</h2>
         <input
           type="text"
           name="name"
           placeholder="Name"
-          className="w-full mb-3 p-2 rounded bg-gray-800 text-white"
+          className="w-full mb-3 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-800 bg-gray-50"
           onChange={handleChange}
           value={form.name}
         />
@@ -52,7 +53,7 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded }) {
           type="text"
           name="contact"
           placeholder="Contact"
-          className="w-full mb-3 p-2 rounded bg-gray-800 text-white"
+          className="w-full mb-3 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-800 bg-gray-50"
           onChange={handleChange}
           value={form.contact}
         />
@@ -60,13 +61,13 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded }) {
           type="number"
           name="credit"
           placeholder="Credit Amount"
-          className="w-full mb-3 p-2 rounded bg-gray-800 text-white"
+          className="w-full mb-3 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-800 bg-gray-50"
           onChange={handleChange}
           value={form.credit}
         />
         <button
           onClick={handleSubmit}
-          className="w-full bg-gradient-to-r from-white via-gray-300 to-gray-400 text-black font-semibold py-2 rounded-xl hover:opacity-90"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg mt-2 transition active:scale-95"
         >
           Submit
         </button>
