@@ -4,7 +4,8 @@ const customerSchema = new mongoose.Schema({
   name: { type: String, required: true },
   contact: { type: String, required: true },
   credit: { type: Number, required: true },
-  date: { type: Date, default: Date.now },
+  joinDate: { type: Date, default: Date.now },
+  lastPurchase: { type: Date, default: Date.now },
   sales: [
     {
       saleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale' },

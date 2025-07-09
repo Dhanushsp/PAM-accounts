@@ -3,7 +3,12 @@ import { useState } from "react";
 import axios from "axios";
 
 export default function AddCustomerPopup({ token, onClose, onCustomerAdded }) {
-  const [form, setForm] = useState({ name: '', contact: '', credit: '' });
+  const [form, setForm] = useState({ 
+    name: '', 
+    contact: '', 
+    credit: '',
+    joinDate: new Date().toISOString().split('T')[0]
+  });
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -64,6 +69,14 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded }) {
           className="w-full mb-3 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-800 bg-gray-50"
           onChange={handleChange}
           value={form.credit}
+        />
+        <input
+          type="date"
+          name="joinDate"
+          placeholder="Join Date"
+          className="w-full mb-3 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-800 bg-gray-50"
+          onChange={handleChange}
+          value={form.joinDate}
         />
         <button
           onClick={handleSubmit}

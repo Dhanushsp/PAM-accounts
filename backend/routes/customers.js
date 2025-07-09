@@ -19,7 +19,9 @@ router.get("/", async (req, res) => {
     else if (sort === "oldest") sortBy = { lastPurchase: 1 };
     else if (sort === "credit") sortBy = { credit: -1 };
 
+    console.log('Sorting by:', sort, 'Sort criteria:', sortBy);
     const customers = await Customer.find(query).sort(sortBy);
+    console.log('Customers returned:', customers.length, 'First customer lastPurchase:', customers[0]?.lastPurchase);
     res.json(customers);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch customers", error: err });
@@ -29,7 +31,7 @@ router.get("/", async (req, res) => {
 // POST a new customer
 router.post("/", async (req, res) => {
   try {
-    const { name, contact, credit } = req.body;
+    const { name, contact, credit, joinDate } = req.body;
 
     if (!name || !contact || credit == null) {
       return res.status(400).json({ message: "All fields are required" });
@@ -39,6 +41,7 @@ router.post("/", async (req, res) => {
       name,
       contact,
       credit,
+      joinDate: joinDate ? new Date(joinDate) : new Date(),
       lastPurchase: new Date()
     });
 
@@ -78,7 +81,7 @@ router.get('/customers', auth, async (req, res) => {
 // GET /api/customers/:id
 router.get('/:id', async (req, res) => {
   try {
-    const customer = await Customer.findById(req.params.id).lean();
+    const customer = await Customer.findById(req.params.id);
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
     res.json(customer);
   } catch (err) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Select from 'react-select';
 
-export default function AddSale({ onClose }) {
+export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent }) {
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [customerName, setCustomerName] = useState('');
@@ -16,63 +16,61 @@ export default function AddSale({ onClose }) {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [amountReceived, setAmountReceived] = useState(0);
   const [updatedCredit, setUpdatedCredit] = useState(0);
+  const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
+  // Update: Helper to get price based on sale type
+  const getProductPrice = (product, type) => {
+    if (type === 'kg') return product.pricePerKg;
+    return product.pricePerPack;
+  };
+
+  // Update: When products are fetched, keep both pricePerKg and pricePerPack
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    // Fetch customers and products from the backend
     axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/customers`, {
       headers: { Authorization: token }
     })
       .then((res) => {
-        console.log(res.data); // 👈 CHECK THIS IN CONSOLE
-        setCustomers(res.data); // Make sure this is an array
+        setCustomers(res.data);
       });
 
     axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/products`, {
       headers: { Authorization: token }
     })
       .then(res => {
-        console.log("Products from API:", res.data); // <== This should be an array of product objects
         setProducts(res.data);
       })
       .catch(err => console.error(err));
-
   }, []);
 
-
-
+  // Update: When saleType changes, update all productDetails prices
   useEffect(() => {
-    // Filter customers based on input
-    const filtered = customers.filter(c =>
-      c.name.toLowerCase().includes(customerName.toLowerCase())
-    );
-    setFilteredCustomers(filtered);
-  }, [customerName, customers]);
+    setProductDetails(prevDetails => prevDetails.map(item => {
+      const product = products.find(p => p._id === item.productId);
+      if (!product) return item;
+      return {
+        ...item,
+        price: getProductPrice(product, saleType)
+      };
+    }));
+    // eslint-disable-next-line
+  }, [saleType]);
 
-  useEffect(() => {
-    // Calculate total price
-    const total = productDetails.reduce((sum, item) => {
-      return sum + (item.quantity * item.price);
-    }, 0);
-    setTotalPrice(total);
-  }, [productDetails]);
-
-  useEffect(() => {
-    // Calculate updated credit
-    const difference = totalPrice - amountReceived;
-    const newCredit = selectedCustomer ? selectedCustomer.credit + difference : difference;
-    setUpdatedCredit(newCredit);
-  }, [amountReceived, totalPrice, selectedCustomer]);
-
+  // Update: When products are selected, auto-fill price based on saleType
   const handleProductChange = selectedOptions => {
     setSelectedProducts(selectedOptions);
-    const details = selectedOptions.map(option => ({
-      productId: option.value,
-      productName: option.label,
-      quantity: 0,
-      price: option.price
-    }));
+    const details = selectedOptions.map(option => {
+      const product = products.find(p => p._id === option.value);
+      return {
+        productId: option.value,
+        productName: option.label,
+        quantity: 0,
+        price: product ? getProductPrice(product, saleType) : 0
+      };
+    });
     setProductDetails(details);
   };
 
@@ -88,23 +86,84 @@ export default function AddSale({ onClose }) {
     setProductDetails(details);
   };
 
-  const handleSubmit = () => {
-    const saleData = {
-      customerId: selectedCustomer._id,
-      saleType,
-      products: productDetails,
-      totalPrice,
-      paymentMethod,
-      amountReceived,
-      updatedCredit
-    };
+  const handleSubmit = async () => {
+    if (!selectedCustomer) {
+      setError('Please select a customer');
+      return;
+    }
+    
+    if (productDetails.length === 0) {
+      setError('Please select at least one product');
+      return;
+    }
 
-    const token = localStorage.getItem("token");
+    setIsSubmitting(true);
+    setError('');
 
-    axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/sales`, saleData, {
-      headers: { Authorization: token }
-    })
+    try {
+      const saleData = {
+        customerId: selectedCustomer._id,
+        saleType,
+        products: productDetails,
+        totalPrice,
+        paymentMethod,
+        amountReceived,
+        updatedCredit,
+        date: new Date(saleDate)
+      };
+
+      const token = localStorage.getItem("token");
+
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/sales`, saleData, {
+        headers: { Authorization: token }
+      });
+
+      alert('Sale added successfully!');
+      onClose();
+      // Set sort to recent and refresh the customer list
+      if (onSetSortToRecent) {
+        onSetSortToRecent();
+      }
+      // Add a small delay to ensure sort state is updated before fetching
+      setTimeout(() => {
+      if (onSaleAdded) {
+        onSaleAdded();
+      }
+      }, 100);
+    } catch (err) {
+      console.error('Error adding sale:', err);
+      setError(err.response?.data?.error || 'Failed to add sale. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  // Ensure total price is always quantity * price for each product
+  useEffect(() => {
+    const total = productDetails.reduce((sum, item) => {
+      return sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0);
+    }, 0);
+    setTotalPrice(total);
+  }, [productDetails]);
+
+  // Restore customer filtering for auto-suggest
+  useEffect(() => {
+    const filtered = customers.filter(c =>
+      c.name.toLowerCase().includes(customerName.toLowerCase())
+    );
+    setFilteredCustomers(filtered);
+  }, [customerName, customers]);
+
+  // Correctly calculate updatedCredit
+  useEffect(() => {
+    if (selectedCustomer) {
+      setUpdatedCredit(
+        parseFloat(selectedCustomer.credit) + (parseFloat(totalPrice) - parseFloat(amountReceived || 0))
+      );
+    } else {
+      setUpdatedCredit(totalPrice - amountReceived);
+    }
+  }, [selectedCustomer, totalPrice, amountReceived]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
@@ -142,6 +201,17 @@ export default function AddSale({ onClose }) {
           <>
             <p className="text-sm text-gray-600 mb-2">Current Credit: ₹{currentCredit.toFixed(2)}</p>
             <div className="space-y-4">
+              {/* Sale Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Sale Date</label>
+                <input
+                  type="date"
+                  value={saleDate}
+                  onChange={e => setSaleDate(e.target.value)}
+                  className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              
               {/* Sale Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Sale Type</label>
@@ -213,11 +283,15 @@ export default function AddSale({ onClose }) {
                 className="w-full px-4 py-2 border rounded"
               />
               <p className="text-sm text-gray-600">Updated Credit: ₹{updatedCredit.toFixed(2)}</p>
+              
+              {error && <div className="text-red-500 text-sm text-center">{error}</div>}
+              
               <button
                 onClick={handleSubmit}
-                className="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition"
+                disabled={isSubmitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-2 rounded-lg transition active:scale-95"
               >
-                Add Sale
+                {isSubmitting ? 'Adding Sale...' : 'Add Sale'}
               </button>
             </div>
           </>

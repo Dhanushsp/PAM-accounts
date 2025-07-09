@@ -24,10 +24,20 @@ export default function Home({ token }) {
 
   const fetchCustomers = async () => {
     try {
+      console.log('Fetching customers with sort:', sort);
       const res = await axios.get(`${BACKEND_URL}/api/customers?search=${search}&sort=${sort}`, {
         headers: { Authorization: token },
       });
+      console.log('Customers fetched:', res.data.length);
       setCustomers(res.data);
+      
+      // If we have a selected customer, refresh their details too
+      if (selectedCustomer) {
+        const customerRes = await axios.get(`${BACKEND_URL}/api/customers/${selectedCustomer._id}`, {
+          headers: { Authorization: token },
+        });
+        setSelectedCustomer(customerRes.data);
+      }
     } catch (error) {
       console.error('Error fetching customers:', error);
     }
@@ -96,7 +106,13 @@ export default function Home({ token }) {
           >
             <div>
               <p className="text-base font-semibold text-gray-800">{c.name}</p>
-              <p className="text-xs text-gray-500">{new Date(c.lastPurchase).toLocaleDateString()}</p>
+              <p className="text-xs text-gray-500">
+                {c.lastPurchase ? new Date(c.lastPurchase).toLocaleDateString('en-IN', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                }) : 'No purchases'}
+              </p>
             </div>
             <p className="text-blue-700 font-bold text-lg">₹{c.credit}</p>
           </div>
@@ -138,7 +154,10 @@ export default function Home({ token }) {
       {showProductPopup && (
         <AddProductPopup token={token} onClose={() => setShowProductPopup(false)} />
       )}
-      {showSalesPopup && <AddSale token={token} onClose={() => setShowSalesPopup(false)} />}
+      {showSalesPopup && <AddSale token={token} onClose={() => setShowSalesPopup(false)} onSaleAdded={fetchCustomers} onSetSortToRecent={() => {
+        console.log('Setting sort to recent');
+        setSort('recent');
+      }} />}
       {/* Customer Sales Modal */}
       {selectedCustomer && (
         <CustomerSalesModal
@@ -148,6 +167,7 @@ export default function Home({ token }) {
             // Implement edit functionality here
             console.log('Edit sale:', sale);
           }}
+          onRefresh={() => fetchCustomerDetails(selectedCustomer._id)}
         />
       )}
     </div>

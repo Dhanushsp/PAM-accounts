@@ -14,7 +14,8 @@ router.post('/', auth, async (req, res) => {
       totalPrice,
       paymentMethod,
       amountReceived,
-      updatedCredit
+      updatedCredit,
+      date
     } = req.body;
 
     const sale = new Sale({
@@ -24,13 +25,13 @@ router.post('/', auth, async (req, res) => {
       totalPrice,
       paymentMethod,
       amountReceived,
-      date: new Date()
+      date: date ? new Date(date) : new Date()
     });
 
     const savedSale = await sale.save();
 
     // Add sale info to customer
-    await Customer.findByIdAndUpdate(
+    const updatedCustomer = await Customer.findByIdAndUpdate(
       customerId,
       {
         $push: {
@@ -45,13 +46,21 @@ router.post('/', auth, async (req, res) => {
           }
         },
         $set: {
-          credit: updatedCredit
+          credit: updatedCredit,
+          lastPurchase: savedSale.date
         }
       },
       { new: true }
     );
 
-    res.json({ message: 'Sale recorded and customer updated successfully' });
+    console.log('Sale saved with amountReceived:', amountReceived);
+    console.log('Updated customer sales:', updatedCustomer.sales);
+
+    res.json({ 
+      message: 'Sale recorded and customer updated successfully',
+      sale: savedSale,
+      customer: updatedCustomer
+    });
 
   } catch (err) {
     console.error("❌ Error saving sale or updating customer:", err);
