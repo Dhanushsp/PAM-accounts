@@ -15,9 +15,15 @@ router.get("/", async (req, res) => {
     if (search) query.name = { $regex: search, $options: "i" };
 
     let sortBy = {};
-    if (sort === "recent") sortBy = { lastPurchase: -1 };
-    else if (sort === "oldest") sortBy = { lastPurchase: 1 };
-    else if (sort === "credit") sortBy = { credit: -1 };
+    if (sort === "recent") {
+      // Sort by lastPurchase descending, with null values last
+      sortBy = { lastPurchase: -1 };
+    } else if (sort === "oldest") {
+      // Sort by lastPurchase ascending, with null values first
+      sortBy = { lastPurchase: 1 };
+    } else if (sort === "credit") {
+      sortBy = { credit: -1 };
+    }
 
     console.log('Sorting by:', sort, 'Sort criteria:', sortBy);
     const customers = await Customer.find(query).sort(sortBy);

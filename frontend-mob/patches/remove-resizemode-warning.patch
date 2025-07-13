@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-native/Libraries/Image/Image.js b/node_modules/react-native/Libraries/Image/Image.js
+index 1234567..abcdefg 100644
+--- a/node_modules/react-native/Libraries/Image/Image.js
++++ b/node_modules/react-native/Libraries/Image/Image.js
+@@ -123,7 +123,7 @@ class Image extends React.Component {
+       if (style && style.resizeMode) {
+         // Suppress the warning by not calling it
+         // console.warn('Image: style.resizeMode is deprecated. Please use props.resizeMode.');
+-        console.warn('Image: style.resizeMode is deprecated. Please use props.resizeMode.');
++        // Warning suppressed
+       }
+     }
+   } 
