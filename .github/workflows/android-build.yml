@@ -32,6 +32,12 @@ jobs:
         working-directory: ./frontend
         run: chmod +x android/gradlew
 
+      - name: Clean Android build
+        working-directory: ./frontend
+        run: |
+          cd android
+          ./gradlew clean
+
       - name: Build Release APK
         working-directory: ./frontend
         run: |
