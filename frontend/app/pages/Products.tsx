@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Pressable } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackHandler } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 
 
@@ -143,53 +144,52 @@ export default function Products({ onBack, token }: ProductsProps) {
     return (
       <SafeAreaView className="flex-1 bg-blue-50">
         <View className="flex-1 p-4">
-          {/* Header */}
-          <View className="flex-row items-center justify-between mb-6">
-            <TouchableOpacity
+          {/* Modernized Header */}
+          <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
+            <Pressable
               onPress={() => setEditingProduct(null)}
-              className="p-2 rounded-lg bg-gray-100"
+              className="bg-gray-100 rounded-full p-2"
+              style={{ elevation: 2 }}
             >
-              <Text className="text-lg">←</Text>
-            </TouchableOpacity>
-            <Text className="text-xl font-bold text-gray-800">Edit Product</Text>
+              <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
+            </Pressable>
+            <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
+              Edit Product
+            </Text>
             <View style={{ width: 40 }} />
           </View>
 
           {/* Edit Form */}
-          <View className="bg-white rounded-xl p-6">
+          <View className="bg-white rounded-xl p-6 shadow-sm">
             <TextInput
               placeholder="Product Name"
               value={editForm.productName}
               onChangeText={(text) => setEditForm(prev => ({ ...prev, productName: text }))}
-              className="w-full mb-4 px-4 py-3 rounded-lg border border-gray-300 bg-gray-50 text-gray-800"
+              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
             />
-            
             <TextInput
               placeholder="Price per Pack"
               value={editForm.pricePerPack}
               onChangeText={(text) => setEditForm(prev => ({ ...prev, pricePerPack: text }))}
               keyboardType="numeric"
-              className="w-full mb-4 px-4 py-3 rounded-lg border border-gray-300 bg-gray-50 text-gray-800"
+              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
             />
-            
             <TextInput
               placeholder="Kgs per Pack"
               value={editForm.kgsPerPack}
               onChangeText={(text) => setEditForm(prev => ({ ...prev, kgsPerPack: text }))}
               keyboardType="numeric"
-              className="w-full mb-4 px-4 py-3 rounded-lg border border-gray-300 bg-gray-50 text-gray-800"
+              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
             />
-            
             <TextInput
               placeholder="Price per Kg"
               value={editForm.pricePerKg}
               editable={false}
-              className="w-full mb-6 px-4 py-3 rounded-lg border border-gray-200 bg-gray-100 text-gray-500"
+              className="w-full mb-6 px-4 py-3 rounded-xl border border-gray-100 bg-gray-100 text-gray-500 text-base"
             />
-
             <TouchableOpacity
               onPress={handleUpdate}
-              className="w-full bg-blue-600 py-3 rounded-lg"
+              className="w-full bg-blue-600 py-3 rounded-xl shadow-sm"
             >
               <Text className="text-white text-center font-semibold text-lg">Update Product</Text>
             </TouchableOpacity>
@@ -202,15 +202,18 @@ export default function Products({ onBack, token }: ProductsProps) {
   return (
     <SafeAreaView className="flex-1 bg-blue-50">
       <View className="flex-1 p-4">
-        {/* Header */}
-        <View className="flex-row items-center justify-between mb-6">
-          <TouchableOpacity
+        {/* Modernized Header */}
+        <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
+          <Pressable
             onPress={onBack}
-            className="p-2 rounded-lg bg-gray-100"
+            className="bg-gray-100 rounded-full p-2"
+            style={{ elevation: 2 }}
           >
-            <Text className="text-lg">←</Text>
-          </TouchableOpacity>
-          <Text className="text-xl font-bold text-gray-800">Products</Text>
+            <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
+          </Pressable>
+          <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
+            Products
+          </Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -228,8 +231,7 @@ export default function Products({ onBack, token }: ProductsProps) {
             {products.map((product) => (
               <View
                 key={product._id}
-                className="bg-white rounded-xl p-4 mb-3 border border-gray-100"
-  
+                className="bg-white rounded-xl p-4 mb-3 border border-gray-100 shadow-sm"
               >
                 <View className="flex-row justify-between items-start">
                   <View className="flex-1">
@@ -248,21 +250,21 @@ export default function Products({ onBack, token }: ProductsProps) {
                       </Text>
                     </View>
                   </View>
-                  
-                  <View className="flex-row space-x-2 ml-4">
-                    <TouchableOpacity
+                  <View className="flex-row gap-2 ml-2">
+                    <Pressable
                       onPress={() => handleEdit(product)}
-                      className="p-2 bg-blue-100 rounded-lg"
+                      className="bg-blue-100 rounded-full p-2"
+                      style={{ elevation: 1 }}
                     >
-                      <Text className="text-blue-600 text-lg">✏️</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity
+                      <MaterialIcons name="edit" size={18} color="#2563EB" />
+                    </Pressable>
+                    <Pressable
                       onPress={() => handleDelete(product)}
-                      className="p-2 bg-red-100 rounded-lg"
+                      className="bg-red-100 rounded-full p-2"
+                      style={{ elevation: 1 }}
                     >
-                      <Text className="text-red-600 text-lg">🗑️</Text>
-                    </TouchableOpacity>
+                      <MaterialIcons name="delete" size={18} color="#dc2626" />
+                    </Pressable>
                   </View>
                 </View>
               </View>

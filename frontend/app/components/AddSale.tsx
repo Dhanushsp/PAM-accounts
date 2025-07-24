@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Pressable, FlatList } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Pressable } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-
 
 interface Customer {
   _id: string;
@@ -37,11 +37,11 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [currentCredit, setCurrentCredit] = useState(0);
-  const [saleType, setSaleType] = useState('kg');
+  const [saleType, setSaleType] = useState<'kg' | 'pack'>('kg');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [productDetails, setProductDetails] = useState<ProductDetail[]>([]);
   const [totalPrice, setTotalPrice] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online'>('cash');
   const [amountReceived, setAmountReceived] = useState(0);
   const [updatedCredit, setUpdatedCredit] = useState(0);
   const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]);
@@ -50,22 +50,13 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
-  const getProductPrice = (product: Product, type: string): number => {
-    if (type === 'kg') return product.pricePerKg;
-    return product.pricePerPack;
-  };
-
   useEffect(() => {
     if (token) {
-      axios.get(`${BACKEND_URL}/api/customers`, { 
-        headers: { Authorization: token } 
-      })
+      axios.get(`${BACKEND_URL}/api/customers`, { headers: { Authorization: token } })
         .then(res => setCustomers(res.data))
         .catch(err => console.error('Error fetching customers:', err));
-      
-      axios.get(`${BACKEND_URL}/api/products`, { 
-        headers: { Authorization: token } 
-      })
+
+      axios.get(`${BACKEND_URL}/api/products`, { headers: { Authorization: token } })
         .then(res => setProducts(res.data))
         .catch(err => console.error('Error fetching products:', err));
     }
@@ -75,10 +66,23 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
     setProductDetails(prev =>
       prev.map(item => {
         const product = products.find(p => p._id === item.productId);
-        return product ? { ...item, price: getProductPrice(product, saleType) } : item;
+        return product ? { ...item, price: saleType === 'kg' ? product.pricePerKg : product.pricePerPack } : item;
       })
     );
-  }, [saleType]);
+  }, [saleType, products]);
+
+  useEffect(() => {
+    setFilteredCustomers(customers.filter(c => c.name.toLowerCase().includes(customerName.toLowerCase())));
+  }, [customerName, customers]);
+
+  useEffect(() => {
+    const total = productDetails.reduce((sum, item) => sum + (item.quantity || 0) * (item.price || 0), 0);
+    setTotalPrice(total);
+  }, [productDetails]);
+
+  useEffect(() => {
+    setUpdatedCredit(selectedCustomer ? parseFloat(selectedCustomer.credit as any) + (totalPrice - amountReceived) : totalPrice - amountReceived);
+  }, [selectedCustomer, totalPrice, amountReceived]);
 
   const handleProductChange = (selected: string[]) => {
     setSelectedProducts(selected);
@@ -89,28 +93,16 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
         productId: id,
         productName: product.productName,
         quantity: 0,
-        price: getProductPrice(product, saleType)
+        price: saleType === 'kg' ? product.pricePerKg : product.pricePerPack
       };
-    }).filter((item): item is ProductDetail => item !== null);
+    }).filter(Boolean) as ProductDetail[];
     setProductDetails(details);
-  };
-
-  const handleQuantityChange = (index: number, value: string) => {
-    const updated = [...productDetails];
-    updated[index].quantity = parseFloat(value) || 0;
-    setProductDetails(updated);
-  };
-
-  const handlePriceChange = (index: number, value: string) => {
-    const updated = [...productDetails];
-    updated[index].price = parseFloat(value) || 0;
-    setProductDetails(updated);
   };
 
   const handleSubmit = async () => {
     if (!selectedCustomer) return setError('Please select a customer');
     if (!productDetails.length) return setError('Please select at least one product');
-    if (!token) return setError('Authentication token is missing');
+    if (!token) return setError('Authentication token missing');
     setIsSubmitting(true); setError('');
     try {
       const data = {
@@ -123,9 +115,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
         updatedCredit,
         date: new Date(saleDate)
       };
-      await axios.post(`${BACKEND_URL}/api/sales`, data, { 
-        headers: { Authorization: token } 
-      });
+      await axios.post(`${BACKEND_URL}/api/sales`, data, { headers: { Authorization: token } });
       alert('Sale added successfully!');
       onClose();
       onSetSortToRecent?.();
@@ -138,175 +128,174 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
     }
   };
 
-  useEffect(() => {
-    const total = productDetails.reduce((sum, item) => sum + (item.quantity || 0) * (item.price || 0), 0);
-    setTotalPrice(total);
-  }, [productDetails]);
-
-  useEffect(() => {
-    const filtered = customers.filter(c => c.name.toLowerCase().includes(customerName.toLowerCase()));
-    setFilteredCustomers(filtered);
-  }, [customerName, customers]);
-
-  useEffect(() => {
-    if (selectedCustomer) {
-      setUpdatedCredit(parseFloat(selectedCustomer.credit) + (totalPrice - (amountReceived || 0)));
-    } else {
-      setUpdatedCredit(totalPrice - amountReceived);
-    }
-  }, [selectedCustomer, totalPrice, amountReceived]);
-
   return (
-    <View className="absolute inset-0 bg-black/40 items-center justify-center z-50">
-      <ScrollView className="bg-white w-11/12 max-w-lg rounded-2xl p-4 space-y-4 max-h-[90vh]">
-        <View className="flex-row justify-between items-center">
-          <Text className="text-lg font-bold text-blue-700">Add Sale</Text>
-          <Pressable onPress={onClose}><Text className="text-gray-400 text-2xl font-bold">&times;</Text></Pressable>
-        </View>
+    <View
+      className="absolute inset-0 z-50 justify-center items-center bg-black/40"
+      style={{ flex: 1 }}
+    >
+      <View className="bg-white w-11/12 max-w-xl rounded-3xl shadow-lg overflow-hidden max-h-[95vh]">
+        {/* Close button */}
+        <Pressable
+          onPress={onClose}
+          className="absolute top-3 right-3 z-10 bg-gray-100 rounded-full p-2"
+          style={{ elevation: 3 }}
+        >
+          <MaterialIcons name="close" size={22} color="#64748b" />
+        </Pressable>
 
-        <TextInput
-          placeholder="Search Customer"
-          value={customerName}
-          onChangeText={setCustomerName}
-          className="border border-gray-300 rounded-lg px-3 py-2"
-        />
+        <Text className="text-lg font-bold text-blue-700 text-center pt-7 pb-2">Add Sale</Text>
 
-        {filteredCustomers.length > 0 && (
-          <View className="bg-white border rounded-lg max-h-40">
-            <ScrollView>
-              {filteredCustomers.map(c => (
-                <Pressable
-                  key={c._id}
-                  onPress={() => { setSelectedCustomer(c); setCustomerName(c.name); setCurrentCredit(Number(c.credit)); }}
-                  className="px-3 py-2 hover:bg-blue-50"
-                >
-                  <Text>{c.name}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+        <ScrollView className="px-6 pb-6 pt-2" style={{ maxHeight: '80vh' }} contentContainerStyle={{ flexGrow: 1 }}>
+          <TextInput
+            placeholder="Search Customer"
+            value={customerName}
+            onChangeText={setCustomerName}
+            className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+            placeholderTextColor="#888"
+          />
 
-        {selectedCustomer && (
-          <>
-            <Text className="text-sm text-gray-600">Current Credit: ₹{currentCredit.toFixed(2)}</Text>
-            <Text className="text-sm">Sale Date</Text>
-            <TextInput
-              value={saleDate}
-              onChangeText={setSaleDate}
-              placeholder="YYYY-MM-DD"
-              className="border border-gray-300 rounded-lg px-3 py-2"
-            />
-
-            <Text className="text-sm">Sale Type</Text>
-            <View className="border border-gray-300 rounded-lg">
+          {filteredCustomers.length > 0 && (
+            <View className="bg-white border border-gray-200 rounded-xl max-h-40 mb-4">
               <ScrollView>
-                <Pressable
-                  onPress={() => setSaleType('kg')}
-                  className={`px-3 py-2 ${saleType === 'kg' ? 'bg-blue-100' : ''}`}
-                >
-                  <Text className={saleType === 'kg' ? 'font-semibold' : ''}>KG</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setSaleType('pack')}
-                  className={`px-3 py-2 ${saleType === 'pack' ? 'bg-blue-100' : ''}`}
-                >
-                  <Text className={saleType === 'pack' ? 'font-semibold' : ''}>Pack</Text>
-                </Pressable>
-              </ScrollView>
-            </View>
-
-            <Text className="text-sm">Products</Text>
-            <View className="border border-gray-300 rounded-lg max-h-40">
-              <ScrollView>
-                {products.map(product => (
+                {filteredCustomers.map(c => (
                   <Pressable
-                    key={product._id}
-                    onPress={() => {
-                      const isSelected = selectedProducts.includes(product._id);
-                      if (isSelected) {
-                        setSelectedProducts(prev => prev.filter(id => id !== product._id));
-                      } else {
-                        setSelectedProducts(prev => [...prev, product._id]);
-                      }
-                    }}
-                    className={`px-3 py-2 ${selectedProducts.includes(product._id) ? 'bg-blue-100' : ''}`}
+                    key={c._id}
+                    onPress={() => { setSelectedCustomer(c); setCustomerName(c.name); setCurrentCredit(c.credit); }}
+                    className="px-4 py-2 rounded-xl"
                   >
-                    <Text className={selectedProducts.includes(product._id) ? 'font-semibold' : ''}>
-                      {product.productName}
-                    </Text>
+                    <Text>{c.name}</Text>
                   </Pressable>
                 ))}
               </ScrollView>
             </View>
+          )}
 
-            {productDetails.map((item, idx) => (
-              <View key={item.productId} className="bg-gray-50 rounded-lg p-2 space-y-2">
-                <Text className="font-medium">{item.productName}</Text>
-                <TextInput
-                  value={item.quantity.toString()}
-                  onChangeText={v => handleQuantityChange(idx, v)}
-                  placeholder="Quantity"
-                  keyboardType="numeric"
-                  className="border border-gray-300 rounded-lg px-3 py-2"
-                />
-                <TextInput
-                  value={item.price.toString()}
-                  onChangeText={v => handlePriceChange(idx, v)}
-                  placeholder="Price"
-                  keyboardType="numeric"
-                  className="border border-gray-300 rounded-lg px-3 py-2"
-                />
+          {selectedCustomer && (
+            <>
+              <Text className="text-sm text-gray-600 mb-2">Current Credit: ₹{currentCredit.toFixed(2)}</Text>
+
+              <TextInput
+                value={saleDate}
+                onChangeText={setSaleDate}
+                placeholder="YYYY-MM-DD"
+                className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+                placeholderTextColor="#888"
+              />
+
+              {/* Sale type */}
+              <View className="flex-row mb-4 gap-2">
+                {['kg', 'pack'].map(type => (
+                  <Pressable
+                    key={type}
+                    onPress={() => setSaleType(type as 'kg' | 'pack')}
+                    className={`px-4 py-2 rounded-full border ${saleType === type ? 'bg-blue-100 border-blue-400' : 'bg-gray-100 border-gray-200'}`}
+                  >
+                    <Text className={saleType === type ? 'font-semibold text-blue-700' : 'text-gray-700'}>
+                      {type.toUpperCase()}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
-            ))}
 
-            <Text className="font-semibold">Total Price: ₹{totalPrice.toFixed(2)}</Text>
+              {/* Products */}
+              <Text className="text-sm mb-1">Products</Text>
+              <View className="border border-gray-200 rounded-xl max-h-40 mb-4 bg-gray-50">
+                <ScrollView>
+                  {products.map(product => (
+                    <Pressable
+                      key={product._id}
+                      onPress={() => {
+                        setSelectedProducts(prev =>
+                          prev.includes(product._id)
+                            ? prev.filter(id => id !== product._id)
+                            : [...prev, product._id]
+                        );
+                      }}
+                      className={`px-4 py-2 rounded-xl mb-1 ${selectedProducts.includes(product._id) ? 'bg-blue-100' : ''}`}
+                    >
+                      <Text className={selectedProducts.includes(product._id) ? 'font-semibold text-blue-700' : 'text-gray-700'}>
+                        {product.productName}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
 
-            <Text className="text-sm">Payment Method</Text>
-            <View className="border border-gray-300 rounded-lg">
-              <ScrollView>
-                <Pressable
-                  onPress={() => setPaymentMethod('cash')}
-                  className={`px-3 py-2 ${paymentMethod === 'cash' ? 'bg-blue-100' : ''}`}
-                >
-                  <Text className={paymentMethod === 'cash' ? 'font-semibold' : ''}>Cash</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setPaymentMethod('online')}
-                  className={`px-3 py-2 ${paymentMethod === 'online' ? 'bg-blue-100' : ''}`}
-                >
-                  <Text className={paymentMethod === 'online' ? 'font-semibold' : ''}>Online Payment</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setPaymentMethod('credit')}
-                  className={`px-3 py-2 ${paymentMethod === 'credit' ? 'bg-blue-100' : ''}`}
-                >
-                  <Text className={paymentMethod === 'credit' ? 'font-semibold' : ''}>Credit</Text>
-                </Pressable>
-              </ScrollView>
-            </View>
+              {productDetails.map((item, idx) => (
+                <View key={item.productId} className="bg-white rounded-2xl border border-gray-100 p-3 mb-3 shadow-sm">
+                  <Text className="font-medium mb-2 text-blue-700">{item.productName}</Text>
+                  <View className="flex-row gap-2 mb-2">
+                    <TextInput
+                      value={item.quantity.toString()}
+                      onChangeText={v => {
+                        const updated = [...productDetails];
+                        updated[idx].quantity = parseFloat(v) || 0;
+                        setProductDetails(updated);
+                      }}
+                      placeholder="Quantity"
+                      keyboardType="numeric"
+                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+                      placeholderTextColor="#888"
+                    />
+                    <TextInput
+                      value={item.price.toString()}
+                      onChangeText={v => {
+                        const updated = [...productDetails];
+                        updated[idx].price = parseFloat(v) || 0;
+                        setProductDetails(updated);
+                      }}
+                      placeholder="Price"
+                      keyboardType="numeric"
+                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+                      placeholderTextColor="#888"
+                    />
+                  </View>
+                </View>
+              ))}
 
-            <TextInput
-              value={amountReceived.toString()}
-              onChangeText={v => setAmountReceived(parseFloat(v) || 0)}
-              placeholder="Amount Received"
-              keyboardType="numeric"
-              className="border border-gray-300 rounded-lg px-3 py-2"
-            />
+              <Text className="font-semibold text-lg text-center mb-2">Total Price: ₹{totalPrice.toFixed(2)}</Text>
 
-            <Text className="text-sm text-gray-600">Updated Credit: ₹{updatedCredit.toFixed(2)}</Text>
-            {error ? <Text className="text-red-500 text-center">{error}</Text> : null}
+              <TextInput
+                value={amountReceived.toString()}
+                onChangeText={v => setAmountReceived(parseFloat(v) || 0)}
+                placeholder="Amount Received"
+                keyboardType="numeric"
+                className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+                placeholderTextColor="#888"
+              />
 
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              className="bg-blue-600 py-2 rounded-lg active:scale-95"
-            >
-              <Text className="text-white text-center">{isSubmitting ? 'Adding Sale...' : 'Add Sale'}</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
+              <Text className="text-sm text-gray-600 mb-2 text-center">Updated Credit: ₹{updatedCredit.toFixed(2)}</Text>
+
+              {/* Payment method */}
+              <View className="flex-row gap-2 mb-4">
+                {['cash', 'online'].map(method => (
+                  <Pressable
+                    key={method}
+                    onPress={() => setPaymentMethod(method as 'cash' | 'online')}
+                    className={`flex-1 px-4 py-2 rounded-full border ${paymentMethod === method ? 'bg-green-100 border-green-400' : 'bg-gray-100 border-gray-200'}`}
+                  >
+                    <Text className={paymentMethod === method ? 'font-semibold text-green-700' : 'text-gray-700'}>
+                      {method.charAt(0).toUpperCase() + method.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {error ? <Text className="text-red-500 mb-2 text-center">{error}</Text> : null}
+
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+                className="w-full bg-blue-600 py-3 rounded-xl mt-2 active:scale-95 shadow-sm"
+              >
+                <Text className="text-white text-center font-semibold text-base">
+                  {isSubmitting ? 'Submitting...' : 'Submit'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </ScrollView>
+      </View>
     </View>
   );
 }

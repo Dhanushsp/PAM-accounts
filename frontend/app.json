@@ -1,12 +1,13 @@
 {
   "expo": {
-    "name": "cal2",
-    "slug": "cal2",
+    "name": "PAM",
+    "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "cal2",
+    "scheme": "frontend",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
@@ -15,8 +16,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.dhanushsp.cal2"
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "bundler": "metro",
@@ -30,18 +30,13 @@
         {
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
+          "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "c5b5606c-3d5f-463d-a6f7-a88617510fcd"
-      }
     }
   }
 }

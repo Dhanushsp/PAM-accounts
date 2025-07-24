@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -16,6 +16,7 @@ export default function App() {
         }
       } catch (e) {
         console.error('Failed to load token', e);
+        Alert.alert('Storage Error', 'Failed to load saved login information.');
       }
     };
     loadToken();

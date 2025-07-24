@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, BackHandler } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, BackHandler, Alert, Pressable } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 
 import axios from 'axios';
+import { API_BASE_URL } from '../../lib/config';
 import AddCustomerPopup from '../components/AddCustomerPopup';
 import AddProductPopup from '../components/AddProductPopup';
 import AddSale from '../components/AddSale';
@@ -35,11 +37,9 @@ export default function Home({ token, onLogout }: HomeProps) {
   const [currentPage, setCurrentPage] = useState('home');
   const insets = useSafeAreaInsets();
 
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
-
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get(`${BACKEND_URL}/api/customers?search=${search}`, {
+      const res = await axios.get(`${API_BASE_URL}/api/customers?search=${search}`, {
         headers: { Authorization: token },
       });
       
@@ -71,24 +71,26 @@ export default function Home({ token, onLogout }: HomeProps) {
       setCustomers(sortedCustomers);
 
       if (selectedCustomer) {
-        const customerRes = await axios.get(`${BACKEND_URL}/api/customers/${selectedCustomer._id}`, {
+        const customerRes = await axios.get(`${API_BASE_URL}/api/customers/${selectedCustomer._id}`, {
           headers: { Authorization: token },
         });
         setSelectedCustomer(customerRes.data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching customers:', error);
+      Alert.alert('Error', 'Failed to fetch customers. Please check your connection.');
     }
   };
 
-  const fetchCustomerDetails = async (customerId) => {
+  const fetchCustomerDetails = async (customerId: string) => {
     try {
-      const res = await axios.get(`${BACKEND_URL}/api/customers/${customerId}`, {
+      const res = await axios.get(`${API_BASE_URL}/api/customers/${customerId}`, {
         headers: { Authorization: token },
       });
       setSelectedCustomer(res.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching customer details:', error);
+      Alert.alert('Error', 'Failed to fetch customer details.');
     }
   };
 
@@ -98,7 +100,7 @@ export default function Home({ token, onLogout }: HomeProps) {
   };
 
   // Helper function to get the latest purchase date
-  const getLatestPurchaseDate = (customer) => {
+  const getLatestPurchaseDate = (customer: any) => {
     // First try the lastPurchase field
     if (customer.lastPurchase) {
       return new Date(customer.lastPurchase);
@@ -106,7 +108,7 @@ export default function Home({ token, onLogout }: HomeProps) {
     
     // If no lastPurchase field, try to get from sales array
     if (customer.sales && customer.sales.length > 0) {
-      const latestSale = customer.sales.reduce((latest, sale) => {
+      const latestSale = customer.sales.reduce((latest: any, sale: any) => {
         const saleDate = new Date(sale.date);
         const latestDate = new Date(latest.date);
         return saleDate > latestDate ? sale : latest;
@@ -169,61 +171,55 @@ export default function Home({ token, onLogout }: HomeProps) {
   return (
     <SafeAreaView className="flex-1 bg-blue-50">
       <View className="flex-1 p-3">
-      
-      {/* Header */}
-      <View className="flex-row justify-between items-center mb-3">
-        <View className="flex-row items-center">
-          <TouchableOpacity
-            onPress={() => setIsSideNavOpen(true)}
-            className="mr-3 p-2 rounded-lg bg-gray-100"
-          >
-            <Text className="text-xl">☰</Text>
-          </TouchableOpacity>
-          <Text className="text-2xl font-bold text-gray-700">
-            <Text>PAM</Text><Text className="text-blue-600">-Accounts</Text>
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={onLogout}
-          className="bg-red-600 px-3 py-1.5 rounded-lg"
+      {/* Modernized Top Navbar */}
+      <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-4 mt-1" style={{ elevation: 3 }}>
+        <Pressable
+          onPress={() => setIsSideNavOpen(true)}
+          className="bg-gray-100 rounded-full p-2 mr-2"
+          style={{ elevation: 2 }}
         >
-          <Text className="text-white font-semibold">Logout</Text>
-        </TouchableOpacity>
+          <MaterialIcons name="menu" size={24} color="#2563EB" />
+        </Pressable>
+        <Text className="text-2xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
+          PAM<Text className="text-blue-500">-Accounts</Text>
+        </Text>
+        <Pressable
+          onPress={onLogout}
+          className="bg-red-100 rounded-full p-2 ml-2"
+          style={{ elevation: 2 }}
+        >
+          <MaterialIcons name="logout" size={22} color="#dc2626" />
+        </Pressable>
       </View>
 
       {/* Search */}
       <TextInput
-        className="bg-white border border-gray-300 rounded-lg px-3 py-2 mb-3"
+        className="border border-gray-200 rounded-xl px-4 py-3 text-black bg-white mb-4 text-base shadow-sm"
         placeholder="🔍 Search by customer name"
         value={search}
         onChangeText={setSearch}
+        placeholderTextColor="#888"
       />
 
-      {/* Sort buttons */}
-      <View className="flex-row flex-wrap gap-2 justify-center mb-3">
-        {['Recent', 'Oldest', 'Credit'].map((type) => (
-          <TouchableOpacity
-            key={type}
-            onPress={() => setSort(type.toLowerCase())}
-            className={`px-4 py-2 rounded-lg border ${
-              sort === type.toLowerCase()
-                ? 'bg-blue-600'
-                : 'bg-white'
-            }`}
-          >
-            <Text className={`font-medium text-sm ${
-              sort === type.toLowerCase()
-                ? 'text-white'
-                : 'text-gray-700'
-            }`}>
-              {type}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* Modernized Filter Buttons */}
+      <View className="flex-row justify-center gap-3 mb-4">
+        {['Recent', 'Oldest', 'Credit'].map((type) => {
+          const selected = sort === type.toLowerCase();
+          return (
+            <TouchableOpacity
+              key={type}
+              onPress={() => setSort(type.toLowerCase())}
+              className={`px-5 py-2 rounded-full shadow-sm ${selected ? 'bg-blue-600' : 'bg-gray-100'}`}
+              style={{ elevation: selected ? 2 : 0 }}
+            >
+              <Text className={`font-bold text-base ${selected ? 'text-white' : 'text-blue-700'}`}>{type}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Customer list */}
-      <ScrollView className="flex-1 mb-20">
+      <ScrollView className="flex-1 mb-4">
         {customers.length === 0 && (
           <Text className="text-center text-gray-400 mt-5">No customers found.</Text>
         )}
@@ -232,7 +228,6 @@ export default function Home({ token, onLogout }: HomeProps) {
             key={c._id}
             onPress={() => fetchCustomerDetails(c._id)}
             className="flex-row justify-between items-center bg-white px-4 py-3 mb-1 rounded-lg"
-            
           >
             <View className="flex-1">
               <Text className="text-base font-semibold text-gray-800 mb-1">{c.name}</Text>
@@ -258,29 +253,35 @@ export default function Home({ token, onLogout }: HomeProps) {
         ))}
       </ScrollView>
 
-      {/* Bottom action buttons */}
-      <View className="absolute bottom-0 left-0 right-0 bg-blue-100 px-4 py-3 flex-row justify-between gap-2 border-t border-blue-200" style={{ paddingBottom: insets.bottom + 12 }}>
+      {/* Modernized Bottom Action Buttons */}
+      <View className="absolute bottom-0 left-0 right-0 px-4 pb-2 pt-2 flex-row gap-3 justify-between items-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', borderTopWidth: 1, borderColor: '#dbeafe', paddingBottom: insets.bottom + 6, elevation: 8 }}>
         <TouchableOpacity
           onPress={() => setShowSalesPopup(true)}
-          className="flex-1 bg-green-600 py-2 rounded-lg"
+          className="flex-1 flex-row items-center justify-center bg-green-600 py-3 rounded-full shadow-md gap-2"
+          style={{ elevation: 2 }}
         >
-          <Text className="text-white text-center font-semibold">+ Sale</Text>
+          <FontAwesome5 name="plus" size={16} color="#fff" />
+          <Text className="text-white text-center font-bold text-base">Sale</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowProductPopup(true)}
-          className="flex-1 bg-blue-600 py-2 rounded-lg"
+          className="flex-1 flex-row items-center justify-center bg-blue-600 py-3 rounded-full shadow-md gap-2"
+          style={{ elevation: 2 }}
         >
-          <Text className="text-white text-center font-semibold">+ Product</Text>
+          <FontAwesome5 name="box" size={16} color="#fff" />
+          <Text className="text-white text-center font-bold text-base">Product</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowPopup(true)}
-          className="flex-1 bg-indigo-600 py-2 rounded-lg"
+          className="flex-1 flex-row items-center justify-center bg-indigo-600 py-3 rounded-full shadow-md gap-2"
+          style={{ elevation: 2 }}
         >
-          <Text className="text-white text-center font-semibold">+ Customer</Text>
+          <FontAwesome5 name="user-plus" size={16} color="#fff" />
+          <Text className="text-white text-center font-bold text-base">Customer</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Popups */}
+      {/* Popups and SideNav remain unchanged */}
       {showPopup && (
         <AddCustomerPopup
           token={token}
@@ -307,7 +308,7 @@ export default function Home({ token, onLogout }: HomeProps) {
 
       {selectedCustomer && (
         <CustomerSalesModal
-          customer={selectedCustomer}
+          customer={selectedCustomer as any}
           onClose={() => setSelectedCustomer(null)}
           onEditSale={(sale) => console.log('Edit sale:', sale)}
           onRefresh={() => fetchCustomerDetails(selectedCustomer._id)}

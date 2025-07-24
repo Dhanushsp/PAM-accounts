@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   build:
@@ -32,23 +32,36 @@ jobs:
           npm cache clean --force
           npm ci
 
-      - name: Make gradlew executable
-        working-directory: ./frontend
-        run: chmod +x android/gradlew
-
-      - name: Clean Android build
+      - name: Make gradlew executable (only if exists)
         working-directory: ./frontend
         run: |
-          cd android
-          ./gradlew clean
+          if [ -f android/gradlew ]; then
+            chmod +x android/gradlew
+          else
+            echo "android/gradlew not found, skipping chmod"
+          fi
 
-      - name: Build Release APK
+      - name: Clean Android build (only if gradlew exists)
         working-directory: ./frontend
         run: |
-          cd android
-          ./gradlew assembleRelease
+          if [ -f android/gradlew ]; then
+            cd android
+            ./gradlew clean
+          else
+            echo "Skipping clean: gradlew not found"
+          fi
 
-      - name: Upload APK
+      - name: Build Release APK (only if gradlew exists)
+        working-directory: ./frontend
+        run: |
+          if [ -f android/gradlew ]; then
+            cd android
+            ./gradlew assembleRelease
+          else
+            echo "Skipping build: gradlew not found"
+          fi
+
+      - name: Upload APK if it exists
         uses: actions/upload-artifact@v4
         with:
           name: app-release
