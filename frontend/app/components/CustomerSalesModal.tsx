@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 
 interface Product {
@@ -37,36 +37,35 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
   if (!customer) return null;
 
   return (
-    <View className="absolute inset-0 bg-black/40 items-center justify-center z-50">
-      <View className="w-11/12 max-w-xl rounded-3xl bg-white shadow-lg p-0 overflow-hidden max-h-[90vh]">
+    <View style={styles.overlay}>
+      <View style={styles.container}>
         {/* Floating Close Button */}
         <Pressable
           onPress={onClose}
-          className="absolute top-3 right-3 z-10 bg-gray-100 rounded-full p-2 shadow"
-          style={{ elevation: 3 }}
+          style={[styles.closeButton, { elevation: 3 }]}
         >
           <MaterialIcons name="close" size={22} color="#64748b" />
         </Pressable>
 
         {/* Title & Refresh */}
-        <View className="pt-6 pb-2 px-6 flex-row items-center justify-between border-b border-gray-100 bg-white">
-          <Text className="text-lg font-bold text-center flex-1 text-blue-700">Sales History</Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Sales History</Text>
             {onRefresh && (
-            <TouchableOpacity onPress={onRefresh} className="ml-2">
+            <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
               <MaterialIcons name="refresh" size={22} color="#2563EB" />
               </TouchableOpacity>
             )}
         </View>
-        <Text className="text-center text-gray-500 text-base font-medium mt-1 mb-2">{customer.name}</Text>
+        <Text style={styles.customerName}>{customer.name}</Text>
 
-        <ScrollView className="px-4 pt-1 pb-2" style={{ maxHeight: '65vh' }}>
+        <ScrollView style={styles.salesScroll} contentContainerStyle={{ paddingBottom: 8 }}>
         {customer.sales && customer.sales.length > 0 ? (
           customer.sales
             .sort((a: Sale, b: Sale) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .map((sale: Sale) => (
-                <View key={sale._id} className="mb-4 rounded-2xl bg-gray-50 px-4 py-3 shadow-sm">
-                  <View className="flex-row items-center justify-between mb-1">
-                    <Text className="text-xs text-gray-400">
+                <View key={sale._id} style={styles.saleBox}>
+                  <View style={styles.saleBoxHeader}>
+                    <Text style={styles.saleDate}>
                   {sale.date
                     ? new Date(sale.date).toLocaleDateString('en-IN', {
                         year: 'numeric',
@@ -78,46 +77,219 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
                         : 'Date not available'}
                     </Text>
                     {sale.saleType && (
-                      <View className="bg-blue-100 px-2 py-0.5 rounded-full ml-2">
-                        <Text className="text-xs text-blue-700 font-semibold">{sale.saleType.toUpperCase()}</Text>
+                      <View style={styles.saleTypeBadge}>
+                        <Text style={styles.saleTypeBadgeText}>{sale.saleType.toUpperCase()}</Text>
                       </View>
                     )}
                   </View>
-                  <View className="mt-1 mb-2">
+                  <View style={styles.productsList}>
                   {sale.products.map((product: Product) => (
-                      <Text key={product._id} className="text-sm text-gray-700 mb-0.5">
-                        • {product.productName} <Text className="text-gray-400">x{product.quantity}</Text> <Text className="text-gray-500">₹{product.price}</Text>
+                      <Text key={product._id} style={styles.productText}>
+                        • {product.productName} <Text style={styles.productQty}>x{product.quantity}</Text> <Text style={styles.productPrice}>₹{product.price}</Text>
                     </Text>
                   ))}
                 </View>
-                  <View className="flex-row items-center justify-between mt-1">
-                    <Text className="text-xs text-gray-600">
-                      <FontAwesome name="rupee" size={12} color="#64748b" /> {sale.totalPrice}  <Text className="text-gray-400">/ {sale.amountReceived}</Text>
+                  <View style={styles.saleBoxFooter}>
+                    <Text style={styles.saleTotal}>
+                      <FontAwesome name="rupee" size={12} color="#64748b" /> {sale.totalPrice}  <Text style={styles.saleAmountReceived}>/ {sale.amountReceived}</Text>
                 </Text>
-                    <View className="flex-row items-center">
+                    <View style={styles.paymentRow}>
                       <MaterialIcons name="payment" size={14} color="#64748b" />
-                      <Text className="text-xs text-gray-500 ml-1">{sale.paymentMethod}</Text>
+                      <Text style={styles.paymentMethod}>{sale.paymentMethod}</Text>
                     </View>
                   </View>
                 <TouchableOpacity
                   onPress={() => onEditSale(sale)}
-                    className="flex-row items-center mt-2 self-end"
+                  style={styles.editButton}
                 >
                   <FontAwesome name="edit" size={14} color="#2563EB" />
-                    <Text className="text-blue-600 text-xs font-semibold ml-1">Edit</Text>
+                    <Text style={styles.editButtonText}>Edit</Text>
                 </TouchableOpacity>
               </View>
             ))
         ) : (
-            <Text className="text-gray-400 text-center mt-8 mb-8">No sales history available.</Text>
+            <Text style={styles.noSalesText}>No sales history available.</Text>
         )}
         </ScrollView>
 
         {/* Credit Summary */}
-        <View className="bg-blue-50 px-6 py-4 rounded-b-3xl border-t border-blue-100 items-center">
-          <Text className="text-blue-700 font-bold text-lg">Current Credit: ₹{customer.credit}</Text>
+        <View style={styles.creditSummary}>
+          <Text style={styles.creditSummaryText}>Current Credit: ₹{customer.credit}</Text>
         </View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+  },
+  container: {
+    width: '91%',
+    maxWidth: 480,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    overflow: 'hidden',
+    maxHeight: '90%',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 999,
+    padding: 8,
+  },
+  header: {
+    paddingTop: 24,
+    paddingBottom: 8,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderColor: '#f3f4f6',
+    backgroundColor: '#fff',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    flex: 1,
+    color: '#1d4ed8',
+  },
+  refreshButton: {
+    marginLeft: 8,
+  },
+  customerName: {
+    textAlign: 'center',
+    color: '#6b7280',
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  salesScroll: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    maxHeight: 350,
+  },
+  saleBox: {
+    marginBottom: 16,
+    borderRadius: 20,
+    backgroundColor: '#f9fafb',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  saleBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  saleDate: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  saleTypeBadge: {
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    marginLeft: 8,
+  },
+  saleTypeBadgeText: {
+    fontSize: 12,
+    color: '#1d4ed8',
+    fontWeight: '600',
+  },
+  productsList: {
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  productText: {
+    fontSize: 14,
+    color: '#374151',
+    marginBottom: 2,
+  },
+  productQty: {
+    color: '#9ca3af',
+  },
+  productPrice: {
+    color: '#6b7280',
+  },
+  saleBoxFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  saleTotal: {
+    fontSize: 12,
+    color: '#4b5563',
+  },
+  saleAmountReceived: {
+    color: '#9ca3af',
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentMethod: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginLeft: 4,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    alignSelf: 'flex-end',
+  },
+  editButtonText: {
+    color: '#2563eb',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  noSalesText: {
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginTop: 32,
+    marginBottom: 32,
+  },
+  creditSummary: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    borderTopWidth: 1,
+    borderColor: '#dbeafe',
+    alignItems: 'center',
+  },
+  creditSummaryText: {
+    color: '#1d4ed8',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+});

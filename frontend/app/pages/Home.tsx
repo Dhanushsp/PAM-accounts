@@ -11,6 +11,9 @@ import AddSale from '../components/AddSale';
 import CustomerSalesModal from '../components/CustomerSalesModal';
 import SideNav from '../components/SideNav';
 import Products from './Products';
+import * as XLSX from 'xlsx';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 interface Customer {
   _id: string;
@@ -119,6 +122,65 @@ export default function Home({ token, onLogout }: HomeProps) {
     return null;
   };
 
+  // Helper to format customer data for Excel
+  const generateExcelData = () => {
+    const sheets: { [key: string]: any[][] } = {};
+    customers.forEach((customer) => {
+      const sheetData: any[][] = [];
+      // Header
+      sheetData.push([
+        'Sale Date',
+        'Product Name',
+        'Quantity',
+        'Price',
+        'Total Price',
+        'Amount Paid',
+        'Payment Method',
+        'Credit After Sale',
+      ]);
+      // Rows
+      if (customer.sales && customer.sales.length > 0) {
+        customer.sales.forEach((sale: any) => {
+          (sale.products || []).forEach((product: any) => {
+            sheetData.push([
+              sale.date ? new Date(sale.date).toLocaleDateString() : '',
+              product.productName || '',
+              product.quantity || '',
+              product.price || '',
+              sale.totalPrice || '',
+              sale.amountReceived || '',
+              sale.paymentMethod || '',
+              sale.updatedCredit || '',
+            ]);
+          });
+        });
+      } else {
+        sheetData.push(['No sales', '', '', '', '', '', '', '']);
+      }
+      sheets[customer.name || customer._id] = sheetData;
+    });
+    return sheets;
+  };
+
+  // Download handler
+  const handleDownload = async () => {
+    try {
+      const sheets = generateExcelData();
+      const wb = XLSX.utils.book_new();
+      Object.entries(sheets).forEach(([sheetName, data]) => {
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31)); // Excel sheet name limit
+      });
+      const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+      const fileUri = FileSystem.cacheDirectory + 'customers.xlsx';
+      await FileSystem.writeAsStringAsync(fileUri, wbout, { encoding: FileSystem.EncodingType.Base64 });
+      await Sharing.shareAsync(fileUri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Download Customers Data' });
+    } catch (err) {
+      Alert.alert('Error', 'Failed to generate or share the file.');
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchCustomers();
   }, [search, sort]);
@@ -217,6 +279,16 @@ export default function Home({ token, onLogout }: HomeProps) {
           );
         })}
       </View>
+
+      {/* Download Button */}
+      <TouchableOpacity
+        onPress={handleDownload}
+        className="flex-row items-center justify-center bg-yellow-500 py-3 rounded-full shadow-md mb-3"
+        style={{ elevation: 2 }}
+      >
+        <FontAwesome5 name="download" size={16} color="#fff" />
+        <Text className="text-white text-center font-bold text-base ml-2">Download Customers (Excel)</Text>
+      </TouchableOpacity>
 
       {/* Customer list */}
       <ScrollView className="flex-1 mb-4">

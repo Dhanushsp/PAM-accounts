@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 
@@ -48,24 +48,23 @@ export default function AddProductPopup({ token, onClose }: AddProductPopupProps
   };
 
   return (
-    <View className="absolute inset-0 z-50 flex-1 justify-center items-center bg-black/40">
-      <View className="bg-white w-11/12 max-w-xl rounded-3xl shadow-lg overflow-hidden relative">
+    <View style={styles.overlay}>
+      <View style={styles.container}>
         {/* Close */}
         <Pressable
           onPress={onClose}
-          className="absolute top-3 right-3 z-10 bg-gray-100 rounded-full p-2"
-          style={{ elevation: 3 }}
+          style={[styles.closeButton, { elevation: 3 }]}
         >
           <MaterialIcons name="close" size={22} color="#64748b" />
         </Pressable>
         {/* Title */}
-        <Text className="text-lg font-bold text-blue-700 text-center pt-7 pb-2">Add Product</Text>
-        <View className="px-6 pb-6 pt-2">
+        <Text style={styles.title}>Add Product</Text>
+        <View style={styles.formContainer}>
           <TextInput
             placeholder="Product Name"
             value={form.productName}
             onChangeText={v => handleChange('productName', v)}
-            className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+            style={styles.input}
             placeholderTextColor="#888"
           />
           <TextInput
@@ -73,7 +72,7 @@ export default function AddProductPopup({ token, onClose }: AddProductPopupProps
             value={form.pricePerPack}
             onChangeText={v => handleChange('pricePerPack', v)}
             keyboardType="numeric"
-            className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+            style={styles.input}
             placeholderTextColor="#888"
           />
           <TextInput
@@ -81,24 +80,113 @@ export default function AddProductPopup({ token, onClose }: AddProductPopupProps
             value={form.kgsPerPack}
             onChangeText={v => handleChange('kgsPerPack', v)}
             keyboardType="numeric"
-            className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+            style={styles.input}
             placeholderTextColor="#888"
           />
           <TextInput
             placeholder="Price per Kg"
             value={form.pricePerKg}
             editable={false}
-            className="mb-4 px-4 py-3 rounded-xl border border-gray-100 bg-gray-100 text-gray-500 text-base"
+            style={styles.inputDisabled}
             placeholderTextColor="#888"
           />
           <TouchableOpacity
             onPress={handleSubmit}
-            className="w-full bg-blue-600 py-3 rounded-xl mt-2 active:scale-95 shadow-sm"
+            style={styles.submitButton}
           >
-            <Text className="text-white text-center font-semibold text-base">Submit</Text>
+            <Text style={styles.submitButtonText}>Submit</Text>
           </TouchableOpacity>
         </View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  container: {
+    backgroundColor: '#fff',
+    width: '91%', // w-11/12
+    maxWidth: 480, // max-w-xl
+    borderRadius: 24, // rounded-3xl
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12, // top-3
+    right: 12, // right-3
+    zIndex: 10,
+    backgroundColor: '#f3f4f6', // bg-gray-100
+    borderRadius: 999,
+    padding: 8, // p-2
+  },
+  title: {
+    fontSize: 18, // text-lg
+    fontWeight: 'bold',
+    color: '#1d4ed8', // text-blue-700
+    textAlign: 'center',
+    paddingTop: 28, // pt-7
+    paddingBottom: 8, // pb-2
+  },
+  formContainer: {
+    paddingHorizontal: 24, // px-6
+    paddingBottom: 24, // pb-6
+    paddingTop: 8, // pt-2
+  },
+  input: {
+    marginBottom: 16, // mb-4
+    paddingHorizontal: 16, // px-4
+    paddingVertical: 12, // py-3
+    borderRadius: 16, // rounded-xl
+    borderWidth: 1,
+    borderColor: '#e5e7eb', // border-gray-200
+    backgroundColor: '#f9fafb', // bg-gray-50
+    color: '#000',
+    fontSize: 16, // text-base
+  },
+  inputDisabled: {
+    marginBottom: 16, // mb-4
+    paddingHorizontal: 16, // px-4
+    paddingVertical: 12, // py-3
+    borderRadius: 16, // rounded-xl
+    borderWidth: 1,
+    borderColor: '#f3f4f6', // border-gray-100
+    backgroundColor: '#f3f4f6', // bg-gray-100
+    color: '#6b7280', // text-gray-500
+    fontSize: 16, // text-base
+  },
+  submitButton: {
+    width: '100%',
+    backgroundColor: '#2563eb', // bg-blue-600
+    paddingVertical: 12, // py-3
+    borderRadius: 16, // rounded-xl
+    marginTop: 8, // mt-2
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.10,
+    shadowRadius: 4,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600', // font-semibold
+    fontSize: 16, // text-base
+  },
+});

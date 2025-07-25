@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SafeAreaView, TextInput, View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView, TextInput, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import axios from 'axios';
 
 interface LoginProps {
@@ -35,13 +35,13 @@ export default function Login({ setToken }: LoginProps) {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <View className="flex-1 justify-center items-center bg-white">
-        <View className="bg-white rounded-lg p-5 w-4/5">
-          <Text className="text-2xl font-bold mb-6 text-center text-blue-700">Login</Text>
-          <View className="space-y-4">
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.loginBox}>
+          <Text style={styles.title}>Login</Text>
+          <View style={styles.inputGroup}>
             <TextInput
-              className="border border-gray-300 p-2 rounded text-black bg-white"
+              style={styles.input}
               placeholder="Mobile"
               value={mobile}
               onChangeText={setMobile}
@@ -49,7 +49,7 @@ export default function Login({ setToken }: LoginProps) {
               placeholderTextColor="#888"
             />
             <TextInput
-              className="border border-gray-300 p-2 rounded text-black bg-white"
+              style={styles.input}
               placeholder="Password"
               value={password}
               onChangeText={setPassword}
@@ -59,16 +59,72 @@ export default function Login({ setToken }: LoginProps) {
             <TouchableOpacity
               onPress={handleLogin}
               disabled={isLoading}
-              className="w-full bg-blue-600 py-2 rounded"
+              style={styles.loginButton}
             >
-              <Text className="text-center text-white font-semibold">
+              <Text style={styles.loginButtonText}>
                 {isLoading ? 'Logging in...' : 'Login'}
               </Text>
             </TouchableOpacity>
           </View>
-          {error ? <Text className="mt-4 text-red-500 text-center">{error}</Text> : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
       </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loginBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%', // w-4/5
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 24,
+    textAlign: 'center',
+    color: '#1d4ed8',
+  },
+  inputGroup: {
+    // space-y-4
+    marginBottom: 0,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#d1d5db', // border-gray-300
+    padding: 8,
+    borderRadius: 8,
+    color: '#000',
+    backgroundColor: '#fff',
+    marginBottom: 16, // space-y-4
+  },
+  loginButton: {
+    width: '100%',
+    backgroundColor: '#2563eb', // bg-blue-600
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  errorText: {
+    marginTop: 16,
+    color: '#ef4444',
+    textAlign: 'center',
+  },
+});

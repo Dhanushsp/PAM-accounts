@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 
@@ -129,39 +129,35 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
   };
 
   return (
-    <View
-      className="absolute inset-0 z-50 justify-center items-center bg-black/40"
-      style={{ flex: 1 }}
-    >
-      <View className="bg-white w-11/12 max-w-xl rounded-3xl shadow-lg overflow-hidden max-h-[95vh]">
+    <View style={[styles.overlay, { flex: 1 }]}>
+      <View style={styles.container}>
         {/* Close button */}
         <Pressable
           onPress={onClose}
-          className="absolute top-3 right-3 z-10 bg-gray-100 rounded-full p-2"
-          style={{ elevation: 3 }}
+          style={[styles.closeButton, { elevation: 3 }]}
         >
           <MaterialIcons name="close" size={22} color="#64748b" />
         </Pressable>
 
-        <Text className="text-lg font-bold text-blue-700 text-center pt-7 pb-2">Add Sale</Text>
+        <Text style={styles.title}>Add Sale</Text>
 
-        <ScrollView className="px-6 pb-6 pt-2" style={{ maxHeight: '80vh' }} contentContainerStyle={{ flexGrow: 1 }}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={{ flexGrow: 1 }}>
           <TextInput
             placeholder="Search Customer"
             value={customerName}
             onChangeText={setCustomerName}
-            className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+            style={styles.input}
             placeholderTextColor="#888"
           />
 
           {filteredCustomers.length > 0 && (
-            <View className="bg-white border border-gray-200 rounded-xl max-h-40 mb-4">
+            <View style={styles.customerList}>
               <ScrollView>
                 {filteredCustomers.map(c => (
                   <Pressable
                     key={c._id}
                     onPress={() => { setSelectedCustomer(c); setCustomerName(c.name); setCurrentCredit(c.credit); }}
-                    className="px-4 py-2 rounded-xl"
+                    style={styles.customerListItem}
                   >
                     <Text>{c.name}</Text>
                   </Pressable>
@@ -172,25 +168,25 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
 
           {selectedCustomer && (
             <>
-              <Text className="text-sm text-gray-600 mb-2">Current Credit: ₹{currentCredit.toFixed(2)}</Text>
+              <Text style={styles.creditText}>Current Credit: ₹{currentCredit.toFixed(2)}</Text>
 
               <TextInput
                 value={saleDate}
                 onChangeText={setSaleDate}
                 placeholder="YYYY-MM-DD"
-                className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+                style={styles.input}
                 placeholderTextColor="#888"
               />
 
               {/* Sale type */}
-              <View className="flex-row mb-4 gap-2">
+              <View style={styles.rowGap2}>
                 {['kg', 'pack'].map(type => (
                   <Pressable
                     key={type}
                     onPress={() => setSaleType(type as 'kg' | 'pack')}
-                    className={`px-4 py-2 rounded-full border ${saleType === type ? 'bg-blue-100 border-blue-400' : 'bg-gray-100 border-gray-200'}`}
+                    style={[styles.saleTypeButton, saleType === type ? styles.saleTypeButtonActive : styles.saleTypeButtonInactive]}
                   >
-                    <Text className={saleType === type ? 'font-semibold text-blue-700' : 'text-gray-700'}>
+                    <Text style={saleType === type ? styles.saleTypeTextActive : styles.saleTypeTextInactive}>
                       {type.toUpperCase()}
                     </Text>
                   </Pressable>
@@ -198,8 +194,8 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
               </View>
 
               {/* Products */}
-              <Text className="text-sm mb-1">Products</Text>
-              <View className="border border-gray-200 rounded-xl max-h-40 mb-4 bg-gray-50">
+              <Text style={styles.productsLabel}>Products</Text>
+              <View style={styles.productsList}>
                 <ScrollView>
                   {products.map(product => (
                     <Pressable
@@ -211,9 +207,9 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
                             : [...prev, product._id]
                         );
                       }}
-                      className={`px-4 py-2 rounded-xl mb-1 ${selectedProducts.includes(product._id) ? 'bg-blue-100' : ''}`}
+                      style={[styles.productItem, selectedProducts.includes(product._id) && styles.productItemActive]}
                     >
-                      <Text className={selectedProducts.includes(product._id) ? 'font-semibold text-blue-700' : 'text-gray-700'}>
+                      <Text style={selectedProducts.includes(product._id) ? styles.productItemTextActive : styles.productItemTextInactive}>
                         {product.productName}
                       </Text>
                     </Pressable>
@@ -222,9 +218,9 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
               </View>
 
               {productDetails.map((item, idx) => (
-                <View key={item.productId} className="bg-white rounded-2xl border border-gray-100 p-3 mb-3 shadow-sm">
-                  <Text className="font-medium mb-2 text-blue-700">{item.productName}</Text>
-                  <View className="flex-row gap-2 mb-2">
+                <View key={item.productId} style={styles.productDetailBox}>
+                  <Text style={styles.productDetailTitle}>{item.productName}</Text>
+                  <View style={styles.rowGap2}>
                     <TextInput
                       value={item.quantity.toString()}
                       onChangeText={v => {
@@ -234,7 +230,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
                       }}
                       placeholder="Quantity"
                       keyboardType="numeric"
-                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+                      style={styles.productDetailInput}
                       placeholderTextColor="#888"
                     />
                     <TextInput
@@ -246,49 +242,49 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
                       }}
                       placeholder="Price"
                       keyboardType="numeric"
-                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+                      style={styles.productDetailInput}
                       placeholderTextColor="#888"
                     />
                   </View>
                 </View>
               ))}
 
-              <Text className="font-semibold text-lg text-center mb-2">Total Price: ₹{totalPrice.toFixed(2)}</Text>
+              <Text style={styles.totalPriceText}>Total Price: ₹{totalPrice.toFixed(2)}</Text>
 
               <TextInput
                 value={amountReceived.toString()}
                 onChangeText={v => setAmountReceived(parseFloat(v) || 0)}
                 placeholder="Amount Received"
                 keyboardType="numeric"
-                className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-black text-base"
+                style={styles.input}
                 placeholderTextColor="#888"
               />
 
-              <Text className="text-sm text-gray-600 mb-2 text-center">Updated Credit: ₹{updatedCredit.toFixed(2)}</Text>
+              <Text style={styles.updatedCreditText}>Updated Credit: ₹{updatedCredit.toFixed(2)}</Text>
 
               {/* Payment method */}
-              <View className="flex-row gap-2 mb-4">
+              <View style={styles.rowGap2Mb4}>
                 {['cash', 'online'].map(method => (
                   <Pressable
                     key={method}
                     onPress={() => setPaymentMethod(method as 'cash' | 'online')}
-                    className={`flex-1 px-4 py-2 rounded-full border ${paymentMethod === method ? 'bg-green-100 border-green-400' : 'bg-gray-100 border-gray-200'}`}
+                    style={[styles.paymentButton, paymentMethod === method ? styles.paymentButtonActive : styles.paymentButtonInactive]}
                   >
-                    <Text className={paymentMethod === method ? 'font-semibold text-green-700' : 'text-gray-700'}>
+                    <Text style={paymentMethod === method ? styles.paymentTextActive : styles.paymentTextInactive}>
                       {method.charAt(0).toUpperCase() + method.slice(1)}
                     </Text>
                   </Pressable>
                 ))}
               </View>
 
-              {error ? <Text className="text-red-500 mb-2 text-center">{error}</Text> : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <TouchableOpacity
                 onPress={handleSubmit}
                 disabled={isSubmitting}
-                className="w-full bg-blue-600 py-3 rounded-xl mt-2 active:scale-95 shadow-sm"
+                style={styles.submitButton}
               >
-                <Text className="text-white text-center font-semibold text-base">
+                <Text style={styles.submitButtonText}>
                   {isSubmitting ? 'Submitting...' : 'Submit'}
                 </Text>
               </TouchableOpacity>
@@ -299,3 +295,227 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  container: {
+    backgroundColor: '#fff',
+    width: '91%',
+    maxWidth: 480,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    overflow: 'hidden',
+    maxHeight: '95%',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 999,
+    padding: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1d4ed8',
+    textAlign: 'center',
+    paddingTop: 28,
+    paddingBottom: 8,
+  },
+  scrollView: {
+    maxHeight: '80%',
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 8,
+  },
+  input: {
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#000',
+    fontSize: 16,
+  },
+  customerList: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    maxHeight: 160,
+    marginBottom: 16,
+  },
+  customerListItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  creditText: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 8,
+  },
+  rowGap2: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 8,
+  },
+  saleTypeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  saleTypeButtonActive: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#60a5fa',
+  },
+  saleTypeButtonInactive: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#e5e7eb',
+  },
+  saleTypeTextActive: {
+    fontWeight: '600',
+    color: '#1d4ed8',
+  },
+  saleTypeTextInactive: {
+    color: '#374151',
+  },
+  productsLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  productsList: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    maxHeight: 160,
+    marginBottom: 16,
+    backgroundColor: '#f9fafb',
+  },
+  productItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginBottom: 4,
+  },
+  productItemActive: {
+    backgroundColor: '#dbeafe',
+  },
+  productItemTextActive: {
+    fontWeight: '600',
+    color: '#1d4ed8',
+  },
+  productItemTextInactive: {
+    color: '#374151',
+  },
+  productDetailBox: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  productDetailTitle: {
+    fontWeight: '500',
+    marginBottom: 8,
+    color: '#1d4ed8',
+  },
+  productDetailInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#000',
+    fontSize: 16,
+    marginRight: 8,
+  },
+  totalPriceText: {
+    fontWeight: '600',
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  updatedCreditText: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  rowGap2Mb4: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  paymentButton: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  paymentButtonActive: {
+    backgroundColor: '#bbf7d0',
+    borderColor: '#4ade80',
+  },
+  paymentButtonInactive: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#e5e7eb',
+  },
+  paymentTextActive: {
+    fontWeight: '600',
+    color: '#15803d',
+  },
+  paymentTextInactive: {
+    color: '#374151',
+  },
+  errorText: {
+    color: '#ef4444',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  submitButton: {
+    width: '100%',
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    borderRadius: 16,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.10,
+    shadowRadius: 4,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+});
