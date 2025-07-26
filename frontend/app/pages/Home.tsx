@@ -14,6 +14,9 @@ import Products from './Products';
 import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import AddExpensePopup from '../components/AddExpensePopup';
+import CustomersPage from './Customers';
+import Expenses from './Expenses';
 
 interface Customer {
   _id: string;
@@ -38,6 +41,7 @@ export default function Home({ token, onLogout }: HomeProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
+  const [showExpensePopup, setShowExpensePopup] = useState(false);
   const insets = useSafeAreaInsets();
 
   const fetchCustomers = async () => {
@@ -230,6 +234,14 @@ export default function Home({ token, onLogout }: HomeProps) {
     );
   }
 
+  if (currentPage === 'customers') {
+    return <CustomersPage token={token} onBack={() => setCurrentPage('home')} />;
+  }
+
+  if (currentPage === 'expenses') {
+    return <Expenses token={token} onBack={() => setCurrentPage('home')} />;
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-blue-50">
       <View className="flex-1 p-3">
@@ -316,7 +328,7 @@ export default function Home({ token, onLogout }: HomeProps) {
                       })}`;
                     }
                     return 'No purchases yet';
-                  })()}
+                  })() || 'No purchases yet'}
                 </Text>
               </View>
             </View>
@@ -326,30 +338,22 @@ export default function Home({ token, onLogout }: HomeProps) {
       </ScrollView>
 
       {/* Modernized Bottom Action Buttons */}
-      <View className="absolute bottom-0 left-0 right-0 px-4 pb-2 pt-2 flex-row gap-3 justify-between items-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', borderTopWidth: 1, borderColor: '#dbeafe', paddingBottom: insets.bottom + 6, elevation: 8 }}>
+      <View className="absolute bottom-0 left-0 right-0 px-4 pb-2 pt-2 flex-row gap-3 justify-center items-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', borderTopWidth: 1, borderColor: '#dbeafe', paddingBottom: insets.bottom + 6, elevation: 8 }}>
         <TouchableOpacity
           onPress={() => setShowSalesPopup(true)}
           className="flex-1 flex-row items-center justify-center bg-green-600 py-3 rounded-full shadow-md gap-2"
-          style={{ elevation: 2 }}
+          style={{ elevation: 2, maxWidth: 200 }}
         >
           <FontAwesome5 name="plus" size={16} color="#fff" />
           <Text className="text-white text-center font-bold text-base">Sale</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => setShowProductPopup(true)}
-          className="flex-1 flex-row items-center justify-center bg-blue-600 py-3 rounded-full shadow-md gap-2"
-          style={{ elevation: 2 }}
+          onPress={() => setShowExpensePopup(true)}
+          className="flex-1 flex-row items-center justify-center bg-red-600 py-3 rounded-full shadow-md gap-2"
+          style={{ elevation: 2, maxWidth: 200 }}
         >
-          <FontAwesome5 name="box" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base">Product</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setShowPopup(true)}
-          className="flex-1 flex-row items-center justify-center bg-indigo-600 py-3 rounded-full shadow-md gap-2"
-          style={{ elevation: 2 }}
-        >
-          <FontAwesome5 name="user-plus" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base">Customer</Text>
+          <FontAwesome5 name="money-bill-wave" size={16} color="#fff" />
+          <Text className="text-white text-center font-bold text-base">+ Expense</Text>
         </TouchableOpacity>
       </View>
 
@@ -375,6 +379,13 @@ export default function Home({ token, onLogout }: HomeProps) {
           onClose={() => setShowSalesPopup(false)}
           onSaleAdded={fetchCustomers}
           onSetSortToRecent={() => setSort('recent')}
+        />
+      )}
+
+      {showExpensePopup && (
+        <AddExpensePopup
+          token={token}
+          onClose={() => setShowExpensePopup(false)}
         />
       )}
 

@@ -4,33 +4,31 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import AddProductPopup from '../components/AddProductPopup';
+import AddCustomerPopup from '../components/AddCustomerPopup';
 
-
-interface Product {
+interface Customer {
   _id: string;
-  productName: string;
-  pricePerPack: number;
-  kgsPerPack: number;
-  pricePerKg: number;
+  name: string;
+  contact: string;
+  credit: number;
+  joinDate: string;
 }
 
-interface ProductsProps {
+interface CustomersProps {
   onBack: () => void;
   token: string;
 }
 
-export default function Products({ onBack, token }: ProductsProps) {
-  const [products, setProducts] = useState<Product[]>([]);
+export default function Customers({ onBack, token }: CustomersProps) {
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [editForm, setEditForm] = useState({
-    productName: '',
-    pricePerPack: '',
-    kgsPerPack: '',
-    pricePerKg: ''
+    name: '',
+    contact: '',
+    credit: ''
   });
-  const [showAddProductPopup, setShowAddProductPopup] = useState(false);
+  const [showAddCustomerPopup, setShowAddCustomerPopup] = useState(false);
   const insets = useSafeAreaInsets();
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
@@ -38,60 +36,52 @@ export default function Products({ onBack, token }: ProductsProps) {
   // Handle back button
   useEffect(() => {
     const backAction = () => {
-      if (editingProduct) {
-        setEditingProduct(null);
+      if (editingCustomer) {
+        setEditingCustomer(null);
         return true;
       }
       onBack();
       return true;
     };
-
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [editingProduct, onBack]);
+  }, [editingCustomer, onBack]);
 
-  // Fetch products
+  // Fetch customers
   useEffect(() => {
-    fetchProducts();
+    fetchCustomers();
   }, []);
 
-  useEffect(() => {
-    if (!showAddProductPopup) {
-      fetchProducts();
-    }
-  }, [showAddProductPopup]);
-
-  const fetchProducts = async () => {
+  const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${BACKEND_URL}/api/products`, {
+      const response = await axios.get(`${BACKEND_URL}/api/customers`, {
         headers: { Authorization: token }
       });
-      setProducts(response.data);
+      setCustomers(response.data);
     } catch (error) {
-      console.error('Error fetching products:', error);
-      Alert.alert('Error', 'Failed to fetch products');
+      console.error('Error fetching customers:', error);
+      Alert.alert('Error', 'Failed to fetch customers');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEdit = (product: Product) => {
-    setEditingProduct(product);
+  const handleEdit = (customer: Customer) => {
+    setEditingCustomer(customer);
     setEditForm({
-      productName: product.productName,
-      pricePerPack: product.pricePerPack.toString(),
-      kgsPerPack: product.kgsPerPack.toString(),
-      pricePerKg: product.pricePerKg.toString()
+      name: customer.name,
+      contact: customer.contact,
+      credit: customer.credit.toString()
     });
   };
 
   const handleUpdate = async () => {
-    if (!editingProduct) return;
+    if (!editingCustomer) return;
 
     try {
-      const response = await axios.put(
-        `${BACKEND_URL}/api/products/${editingProduct._id}`,
+      await axios.put(
+        `${BACKEND_URL}/api/customers/${editingCustomer._id}`,
         editForm,
         {
           headers: { 
@@ -100,20 +90,19 @@ export default function Products({ onBack, token }: ProductsProps) {
           }
         }
       );
-      
-      Alert.alert('Success', 'Product updated successfully');
-      setEditingProduct(null);
-      fetchProducts(); // Refresh the list
+      Alert.alert('Success', 'Customer updated successfully');
+      setEditingCustomer(null);
+      fetchCustomers();
     } catch (error) {
-      console.error('Error updating product:', error);
-      Alert.alert('Error', 'Failed to update product');
+      console.error('Error updating customer:', error);
+      Alert.alert('Error', 'Failed to update customer');
     }
   };
 
-  const handleDelete = (product: Product) => {
+  const handleDelete = (customer: Customer) => {
     Alert.alert(
-      'Delete Product',
-      `Are you sure you want to delete "${product.productName}"?`,
+      'Delete Customer',
+      `Are you sure you want to delete "${customer.name}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -121,14 +110,14 @@ export default function Products({ onBack, token }: ProductsProps) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await axios.delete(`${BACKEND_URL}/api/products/${product._id}`, {
+              await axios.delete(`${BACKEND_URL}/api/customers/${customer._id}`, {
                 headers: { Authorization: token }
               });
-              Alert.alert('Success', 'Product deleted successfully');
-              fetchProducts(); // Refresh the list
+              Alert.alert('Success', 'Customer deleted successfully');
+              fetchCustomers();
             } catch (error) {
-              console.error('Error deleting product:', error);
-              Alert.alert('Error', 'Failed to delete product');
+              console.error('Error deleting customer:', error);
+              Alert.alert('Error', 'Failed to delete customer');
             }
           }
         }
@@ -136,70 +125,49 @@ export default function Products({ onBack, token }: ProductsProps) {
     );
   };
 
-  const calculatePricePerKg = () => {
-    const { pricePerPack, kgsPerPack } = editForm;
-    if (pricePerPack && kgsPerPack && !isNaN(Number(pricePerPack)) && !isNaN(Number(kgsPerPack))) {
-      const perKg = Number(pricePerPack) / Number(kgsPerPack);
-      setEditForm(prev => ({ ...prev, pricePerKg: perKg.toFixed(2) }));
-    }
-  };
-
-  useEffect(() => {
-    calculatePricePerKg();
-  }, [editForm.pricePerPack, editForm.kgsPerPack]);
-
-  if (editingProduct) {
+  if (editingCustomer) {
     return (
       <SafeAreaView className="flex-1 bg-blue-50">
         <View className="flex-1 p-4">
-          {/* Modernized Header */}
+          {/* Header */}
           <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
             <Pressable
-              onPress={() => setEditingProduct(null)}
+              onPress={() => setEditingCustomer(null)}
               className="bg-gray-100 rounded-full p-2"
               style={{ elevation: 2 }}
             >
               <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
             </Pressable>
-            <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
-              Edit Product
-            </Text>
+            <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center">Edit Customer</Text>
             <View style={{ width: 40 }} />
           </View>
 
           {/* Edit Form */}
           <View className="bg-white rounded-xl p-6 shadow-sm">
             <TextInput
-              placeholder="Product Name"
-              value={editForm.productName}
-              onChangeText={(text) => setEditForm(prev => ({ ...prev, productName: text }))}
+              placeholder="Name"
+              value={editForm.name}
+              onChangeText={(text) => setEditForm(prev => ({ ...prev, name: text }))}
               className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
             />
             <TextInput
-              placeholder="Price per Pack"
-              value={editForm.pricePerPack}
-              onChangeText={(text) => setEditForm(prev => ({ ...prev, pricePerPack: text }))}
+              placeholder="Contact"
+              value={editForm.contact}
+              onChangeText={(text) => setEditForm(prev => ({ ...prev, contact: text }))}
+              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+            />
+            <TextInput
+              placeholder="Credit"
+              value={editForm.credit}
+              onChangeText={(text) => setEditForm(prev => ({ ...prev, credit: text }))}
               keyboardType="numeric"
-              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
-            />
-            <TextInput
-              placeholder="Kgs per Pack"
-              value={editForm.kgsPerPack}
-              onChangeText={(text) => setEditForm(prev => ({ ...prev, kgsPerPack: text }))}
-              keyboardType="numeric"
-              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
-            />
-            <TextInput
-              placeholder="Price per Kg"
-              value={editForm.pricePerKg}
-              editable={false}
-              className="w-full mb-6 px-4 py-3 rounded-xl border border-gray-100 bg-gray-100 text-gray-500 text-base"
+              className="w-full mb-6 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
             />
             <TouchableOpacity
               onPress={handleUpdate}
               className="w-full bg-blue-600 py-3 rounded-xl shadow-sm"
             >
-              <Text className="text-white text-center font-semibold text-lg">Update Product</Text>
+              <Text className="text-white text-center font-semibold text-lg">Update Customer</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -210,7 +178,7 @@ export default function Products({ onBack, token }: ProductsProps) {
   return (
     <SafeAreaView className="flex-1 bg-blue-50">
       <View className="flex-1 p-4">
-        {/* Modernized Header */}
+        {/* Header */}
         <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
           <Pressable
             onPress={onBack}
@@ -219,55 +187,47 @@ export default function Products({ onBack, token }: ProductsProps) {
           >
             <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
           </Pressable>
-          <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
-            Products
-          </Text>
+          <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center">Customers</Text>
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Products List */}
+        {/* Customer List */}
         {loading ? (
           <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500 text-lg">Loading products...</Text>
+            <Text className="text-gray-500 text-lg">Loading customers...</Text>
           </View>
-        ) : products.length === 0 ? (
+        ) : customers.length === 0 ? (
           <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500 text-lg">No products found</Text>
+            <Text className="text-gray-500 text-lg">No customers found</Text>
           </View>
         ) : (
           <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-            {products.map((product) => (
+            {customers.map((customer) => (
               <View
-                key={product._id}
+                key={customer._id}
                 className="bg-white rounded-xl p-4 mb-3 border border-gray-100 shadow-sm"
               >
                 <View className="flex-row justify-between items-start">
                   <View className="flex-1">
                     <Text className="text-lg font-semibold text-gray-800 mb-2">
-                      {product.productName}
+                      {customer.name}
                     </Text>
                     <View className="space-y-1">
-                      <Text className="text-sm text-gray-600">
-                        Price per Pack: ₹{product.pricePerPack}
-                      </Text>
-                      <Text className="text-sm text-gray-600">
-                        Kgs per Pack: {product.kgsPerPack} kg
-                      </Text>
-                      <Text className="text-sm text-gray-600">
-                        Price per Kg: ₹{product.pricePerKg}
-                      </Text>
+                      <Text className="text-sm text-gray-600">Contact: {customer.contact}</Text>
+                      <Text className="text-sm text-gray-600">Credit: ₹{customer.credit}</Text>
+                      <Text className="text-sm text-gray-600">Joined: {new Date(customer.joinDate).toLocaleDateString()}</Text>
                     </View>
                   </View>
                   <View className="flex-row gap-2 ml-2">
                     <Pressable
-                      onPress={() => handleEdit(product)}
+                      onPress={() => handleEdit(customer)}
                       className="bg-blue-100 rounded-full p-2"
                       style={{ elevation: 1 }}
                     >
                       <MaterialIcons name="edit" size={18} color="#2563EB" />
                     </Pressable>
                     <Pressable
-                      onPress={() => handleDelete(product)}
+                      onPress={() => handleDelete(customer)}
                       className="bg-red-100 rounded-full p-2"
                       style={{ elevation: 1 }}
                     >
@@ -280,12 +240,17 @@ export default function Products({ onBack, token }: ProductsProps) {
           </ScrollView>
         )}
       </View>
-      {showAddProductPopup && (
-        <AddProductPopup
+
+      {/* Add Customer Popup */}
+      {showAddCustomerPopup && (
+        <AddCustomerPopup
           token={token}
-          onClose={() => setShowAddProductPopup(false)}
+          onClose={() => setShowAddCustomerPopup(false)}
+          onCustomerAdded={fetchCustomers}
         />
       )}
+
+      {/* Add Button */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 12, alignItems: 'center' }}>
         <TouchableOpacity
           style={{
@@ -302,12 +267,12 @@ export default function Products({ onBack, token }: ProductsProps) {
             shadowRadius: 4,
             elevation: 2,
           }}
-          onPress={() => setShowAddProductPopup(true)}
+          onPress={() => setShowAddCustomerPopup(true)}
         >
-          <MaterialIcons name="add" size={22} color="#fff" />
-          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Product</Text>
+          <MaterialIcons name="person-add" size={22} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Customer</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
-} 
+}

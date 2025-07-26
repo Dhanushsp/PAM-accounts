@@ -7,14 +7,21 @@ interface AddCustomerPopupProps {
   token: string;
   onClose: () => void;
   onCustomerAdded: () => void;
+  editCustomer?: {
+    _id: string;
+    name: string;
+    contact: string;
+    credit: number;
+    joinDate: string;
+  };
 }
 
-export default function AddCustomerPopup({ token, onClose, onCustomerAdded }: AddCustomerPopupProps) {
+export default function AddCustomerPopup({ token, onClose, onCustomerAdded, editCustomer }: AddCustomerPopupProps) {
   const [form, setForm] = useState({
-    name: '',
-    contact: '',
-    credit: '',
-    joinDate: new Date().toISOString().split('T')[0],
+    name: editCustomer?.name || '',
+    contact: editCustomer?.contact || '',
+    credit: editCustomer?.credit?.toString() || '',
+    joinDate: editCustomer?.joinDate || new Date().toISOString().split('T')[0],
   });
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
@@ -25,18 +32,27 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded }: Ad
 
   const handleSubmit = async () => {
     try {
-      const res = await axios.post(`${BACKEND_URL}/api/customers`, form, {
-        headers: { 'Content-Type': 'application/json', Authorization: token }
-      });
-      alert(res.data.message || 'Customer added!');
+      if (editCustomer) {
+        // Edit mode: PUT request
+        const res = await axios.put(`${BACKEND_URL}/api/customers/${editCustomer._id}`, form, {
+          headers: { 'Content-Type': 'application/json', Authorization: token }
+        });
+        alert(res.data.message || 'Customer updated!');
+      } else {
+        // Add mode: POST request
+        const res = await axios.post(`${BACKEND_URL}/api/customers`, form, {
+          headers: { 'Content-Type': 'application/json', Authorization: token }
+        });
+        alert(res.data.message || 'Customer added!');
+      }
       onCustomerAdded();
       onClose();
     } catch (err: any) {
-      console.error('Error adding customer:', err);
+      console.error('Error saving customer:', err);
       if (err.response?.status === 403) {
         alert('Authentication failed. Please login again.');
       } else {
-        alert('Failed to add customer. Please try again.');
+        alert('Failed to save customer. Please try again.');
       }
     }
   };
@@ -52,7 +68,7 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded }: Ad
           <MaterialIcons name="close" size={22} color="#64748b" />
         </Pressable>
         {/* Title */}
-        <Text style={styles.title}>Add Customer</Text>
+        <Text style={styles.title}>{editCustomer ? 'Edit Customer' : 'Add Customer'}</Text>
         <View style={styles.formContainer}>
           <TextInput
             placeholder="Name"
@@ -87,7 +103,7 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded }: Ad
             onPress={handleSubmit}
             style={styles.submitButton}
           >
-            <Text style={styles.submitButtonText}>Submit</Text>
+            <Text style={styles.submitButtonText}>{editCustomer ? 'Save' : 'Submit'}</Text>
           </TouchableOpacity>
         </View>
       </View>

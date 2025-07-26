@@ -1,0 +1,625 @@
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Pressable, Modal, StyleSheet, Platform, ActivityIndicator, Image, ScrollView, Alert } from 'react-native';
+import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import axios from 'axios';
+
+interface AddExpensePopupProps {
+  token: string;
+  onClose: () => void;
+}
+
+interface Category {
+  name: string;
+  subcategories: string[];
+}
+
+const MOCK_CATEGORIES: Category[] = [
+  { name: 'Food', subcategories: ['Groceries', 'Dining Out', 'Snacks'] },
+  { name: 'Transport', subcategories: ['Taxi', 'Bus', 'Fuel'] },
+  { name: 'Utilities', subcategories: ['Electricity', 'Water', 'Internet'] },
+];
+
+export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps) {
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState(MOCK_CATEGORIES[0].name);
+  const [subcategory, setSubcategory] = useState(MOCK_CATEGORIES[0].subcategories[0]);
+  const [description, setDescription] = useState('');
+  const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+  const [newSubcategory, setNewSubcategory] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingCategoryIdx, setEditingCategoryIdx] = useState<number | null>(null);
+  const [editingSubIdx, setEditingSubIdx] = useState<{catIdx: number, subIdx: number} | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [editSubcategoryName, setEditSubcategoryName] = useState('');
+  const [showCategorySelectModal, setShowCategorySelectModal] = useState(false); // NEW
+  const [showSubcategoryModal, setShowSubcategoryModal] = useState(false); // NEW
+
+  // Cloudinary config
+  const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/drqxzr8uw/image/upload';
+  const CLOUDINARY_UPLOAD_PRESET = 'pam_expenses'; // You must create this unsigned preset in your Cloudinary dashboard
+
+  // Handle photo selection and upload
+  const handlePickPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setPhotoUploading(true);
+      setError('');
+      try {
+        const asset = result.assets[0];
+        const formData = new FormData();
+        formData.append('file', {
+          uri: asset.uri,
+          name: 'expense.jpg',
+          type: 'image/jpeg',
+        } as any);
+        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+        const res = await fetch(CLOUDINARY_URL, {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.secure_url) {
+          setPhotoUrl(data.secure_url);
+        } else {
+          setError('Failed to upload image.');
+        }
+      } catch (err) {
+        setError('Failed to upload image.');
+      } finally {
+        setPhotoUploading(false);
+      }
+    }
+  };
+
+  // Handle category add/edit
+  const handleAddCategory = () => {
+    if (newCategory.trim()) {
+      setCategories([...categories, { name: newCategory.trim(), subcategories: [] }]);
+      setNewCategory('');
+    }
+  };
+  const handleAddSubcategory = () => {
+    if (newSubcategory.trim() && category) {
+      setCategories(categories.map(cat =>
+        cat.name === category
+          ? { ...cat, subcategories: [...cat.subcategories, newSubcategory.trim()] }
+          : cat
+      ));
+      setNewSubcategory('');
+    }
+  };
+
+  // Edit category name
+  const handleEditCategory = (idx: number) => {
+    setEditingCategoryIdx(idx);
+    setEditCategoryName(categories[idx].name);
+  };
+  const handleSaveEditCategory = (idx: number) => {
+    if (editCategoryName.trim()) {
+      setCategories(categories.map((cat, i) => i === idx ? { ...cat, name: editCategoryName.trim() } : cat));
+      setEditingCategoryIdx(null);
+      setEditCategoryName('');
+    }
+  };
+  const handleDeleteCategory = (idx: number) => {
+    Alert.alert('Delete Category', 'Are you sure you want to delete this category and all its subcategories?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => {
+        setCategories(categories.filter((_, i) => i !== idx));
+        if (categories[idx].name === category) setCategory(categories[0]?.name || '');
+      }}
+    ]);
+  };
+  // Edit subcategory name
+  const handleEditSubcategory = (catIdx: number, subIdx: number) => {
+    setEditingSubIdx({catIdx, subIdx});
+    setEditSubcategoryName(categories[catIdx].subcategories[subIdx]);
+  };
+  const handleSaveEditSubcategory = (catIdx: number, subIdx: number) => {
+    if (editSubcategoryName.trim()) {
+      setCategories(categories.map((cat, i) =>
+        i === catIdx
+          ? { ...cat, subcategories: cat.subcategories.map((sub, j) => j === subIdx ? editSubcategoryName.trim() : sub) }
+          : cat
+      ));
+      setEditingSubIdx(null);
+      setEditSubcategoryName('');
+    }
+  };
+  const handleDeleteSubcategory = (catIdx: number, subIdx: number) => {
+    Alert.alert('Delete Subcategory', 'Are you sure you want to delete this subcategory?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => {
+        setCategories(categories.map((cat, i) =>
+          i === catIdx
+            ? { ...cat, subcategories: cat.subcategories.filter((_, j) => j !== subIdx) }
+            : cat
+        ));
+        if (categories[catIdx].subcategories[subIdx] === subcategory) setSubcategory(categories[catIdx].subcategories[0] || '');
+      }}
+    ]);
+  };
+
+  // Handle expense submit
+  const handleSubmit = async () => {
+    if (!amount || !category || !subcategory) {
+      setError('Please fill all required fields.');
+      return;
+    }
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await axios.post(
+        `${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/expenses`,
+        {
+          date,
+          amount: parseFloat(amount),
+          category,
+          subcategory,
+          description,
+          photo: photoUrl,
+        },
+        { headers: { Authorization: token } }
+      );
+      onClose();
+    } catch (err: any) {
+      setError('Failed to add expense.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Update subcategory when category changes
+  React.useEffect(() => {
+    const cat = categories.find(c => c.name === category);
+    if (cat && cat.subcategories.length > 0) {
+      setSubcategory(cat.subcategories[0]);
+    } else {
+      setSubcategory('');
+    }
+  }, [category, categories]);
+
+  const cat = categories.find(c => c.name === category);
+
+  return (
+    <View style={styles.overlay}>
+      <View style={styles.container}>
+        {/* Close */}
+        <Pressable onPress={onClose} style={styles.closeButton}>
+          <MaterialIcons name="close" size={22} color="#64748b" />
+        </Pressable>
+        <Text style={styles.title}>Add Expense</Text>
+        <View style={styles.formContainer}>
+          {/* Date */}
+          <Text style={styles.label}>Date</Text>
+          <TextInput
+            style={styles.input}
+            value={date}
+            onChangeText={setDate}
+            placeholder="YYYY-MM-DD"
+          />
+          {/* Amount */}
+          <Text style={styles.label}>Amount</Text>
+          <TextInput
+            style={styles.input}
+            value={amount}
+            onChangeText={setAmount}
+            placeholder="Amount"
+            keyboardType="numeric"
+          />
+          {/* Category & Subcategory */}
+          <View style={styles.rowAlignCenter}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Category</Text>
+              <View style={styles.dropdownRow}>
+                <TouchableOpacity
+                  style={styles.dropdown}
+                  onPress={() => setShowCategorySelectModal(true)} // Open select modal
+                >
+                  <Text style={styles.dropdownText}>{category}</Text>
+                  <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
+                </TouchableOpacity>
+                <Pressable onPress={() => setShowCategoryModal(true)} style={styles.pencilIcon}>
+                  <MaterialIcons name="edit" size={20} color="#64748b" />
+                </Pressable>
+              </View>
+            </View>
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={styles.label}>Subcategory</Text>
+              <TouchableOpacity
+                style={styles.dropdown}
+                onPress={() => setShowSubcategoryModal(true)}
+                disabled={!cat || !cat.subcategories.length}
+              >
+                <Text style={styles.dropdownText}>{subcategory || 'Select'}</Text>
+                <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          {/* Description */}
+          <Text style={styles.label}>Description</Text>
+          <TextInput
+            style={[styles.input, { height: 60 }]}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Description"
+            multiline
+          />
+          {/* Photo */}
+          <View style={styles.photoRow}>
+            <Text style={styles.label}>Photo</Text>
+            <TouchableOpacity onPress={handlePickPhoto} style={styles.photoButton}>
+              <FontAwesome5 name="camera" size={18} color="#2563eb" />
+            </TouchableOpacity>
+            {photoUploading && <ActivityIndicator size="small" color="#2563eb" style={{ marginLeft: 8 }} />}
+            {photoUrl && (
+              <Image source={{ uri: photoUrl }} style={styles.photoPreview} />
+            )}
+          </View>
+          {/* Error */}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {/* Submit */}
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+            style={styles.submitButton}
+          >
+            <Text style={styles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Add Expense'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      {/* Category Modal */}
+      <Modal
+        visible={showCategoryModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Categories</Text>
+            <TextInput
+              style={styles.input}
+              value={newCategory}
+              onChangeText={setNewCategory}
+              placeholder="New Category"
+            />
+            <TouchableOpacity style={styles.addButton} onPress={handleAddCategory}>
+              <Text style={styles.addButtonText}>Add Category</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              value={newSubcategory}
+              onChangeText={setNewSubcategory}
+              placeholder="New Subcategory"
+            />
+            <TouchableOpacity style={styles.addButton} onPress={handleAddSubcategory}>
+              <Text style={styles.addButtonText}>Add Subcategory</Text>
+            </TouchableOpacity>
+            <ScrollView style={{ maxHeight: 120, marginTop: 8 }}>
+              {categories.map((cat, idx) => (
+                <View key={cat.name + idx} style={{ marginBottom: 8 }}>
+                  {editingCategoryIdx === idx ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <TextInput
+                        style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                        value={editCategoryName}
+                        onChangeText={setEditCategoryName}
+                        autoFocus
+                      />
+                      <TouchableOpacity onPress={() => handleSaveEditCategory(idx)} style={{ marginLeft: 4 }}>
+                        <MaterialIcons name="check" size={20} color="#2563eb" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setEditingCategoryIdx(null)} style={{ marginLeft: 4 }}>
+                        <MaterialIcons name="close" size={20} color="#ef4444" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleDeleteCategory(idx)} style={{ marginLeft: 4 }}>
+                        <MaterialIcons name="delete" size={18} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <TouchableOpacity onPress={() => setCategory(cat.name)} style={{ flex: 1 }}>
+                        <Text style={{ fontWeight: 'bold', color: cat.name === category ? '#2563eb' : '#222' }}>{cat.name}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleEditCategory(idx)} style={{ marginLeft: 4 }}>
+                        <MaterialIcons name="edit" size={18} color="#64748b" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {cat.subcategories.map((sub, subIdx) => (
+                    editingSubIdx && editingSubIdx.catIdx === idx && editingSubIdx.subIdx === subIdx ? (
+                      <View key={sub + subIdx} style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12 }}>
+                        <TextInput
+                          style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                          value={editSubcategoryName}
+                          onChangeText={setEditSubcategoryName}
+                          autoFocus
+                        />
+                        <TouchableOpacity onPress={() => handleSaveEditSubcategory(idx, subIdx)} style={{ marginLeft: 4 }}>
+                          <MaterialIcons name="check" size={18} color="#2563eb" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setEditingSubIdx(null)} style={{ marginLeft: 4 }}>
+                          <MaterialIcons name="close" size={18} color="#ef4444" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDeleteSubcategory(idx, subIdx)} style={{ marginLeft: 4 }}>
+                          <MaterialIcons name="delete" size={16} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View key={sub + subIdx} style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12 }}>
+                        <Text style={{ color: sub === subcategory ? '#2563eb' : '#444', flex: 1 }}>{sub}</Text>
+                        <TouchableOpacity onPress={() => handleEditSubcategory(idx, subIdx)} style={{ marginLeft: 4 }}>
+                          <MaterialIcons name="edit" size={16} color="#64748b" />
+                        </TouchableOpacity>
+                      </View>
+                    )
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.closeModalButton} onPress={() => setShowCategoryModal(false)}>
+              <Text style={styles.closeModalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {/* Category Select Modal */}
+      <Modal
+        visible={showCategorySelectModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowCategorySelectModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Category</Text>
+            <ScrollView style={{ maxHeight: 200 }}>
+              {categories.map((cat, idx) => (
+                <TouchableOpacity
+                  key={cat.name + idx}
+                  style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                  onPress={() => {
+                    setCategory(cat.name);
+                    setShowCategorySelectModal(false);
+                  }}
+                >
+                  <Text style={{ color: cat.name === category ? '#2563eb' : '#222', fontWeight: cat.name === category ? 'bold' : 'normal' }}>{cat.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.closeModalButton} onPress={() => setShowCategorySelectModal(false)}>
+              <Text style={styles.closeModalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {/* Subcategory Select Modal */}
+      <Modal
+        visible={showSubcategoryModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowSubcategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Subcategory</Text>
+            <ScrollView style={{ maxHeight: 200 }}>
+              {cat && cat.subcategories.length > 0 ? (
+                cat.subcategories.map((sub, idx) => (
+                  <TouchableOpacity
+                    key={sub + idx}
+                    style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                    onPress={() => {
+                      setSubcategory(sub);
+                      setShowSubcategoryModal(false);
+                    }}
+                  >
+                    <Text style={{ color: sub === subcategory ? '#2563eb' : '#222', fontWeight: sub === subcategory ? 'bold' : 'normal' }}>{sub}</Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <Text style={{ color: '#888', textAlign: 'center', marginTop: 20 }}>No subcategories available.</Text>
+              )}
+            </ScrollView>
+            <TouchableOpacity style={styles.closeModalButton} onPress={() => setShowSubcategoryModal(false)}>
+              <Text style={styles.closeModalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  container: {
+    backgroundColor: '#fff',
+    width: '91%',
+    maxWidth: 480,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    padding: 20,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 999,
+    padding: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1d4ed8',
+    textAlign: 'center',
+    paddingTop: 28,
+    paddingBottom: 8,
+  },
+  formContainer: {
+    paddingTop: 8,
+  },
+  label: {
+    fontWeight: '600',
+    marginBottom: 4,
+    color: '#222',
+  },
+  input: {
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#000',
+    fontSize: 16,
+  },
+  rowAlignCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dropdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#f9fafb',
+    flex: 1,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#222',
+  },
+  pencilIcon: {
+    marginLeft: 8,
+    padding: 6,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 999,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  photoButton: {
+    marginLeft: 8,
+    backgroundColor: '#e0e7ef',
+    borderRadius: 8,
+    padding: 8,
+  },
+  photoPreview: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  errorText: {
+    color: '#ef4444',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  submitButton: {
+    width: '100%',
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    borderRadius: 16,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.10,
+    shadowRadius: 4,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+    alignItems: 'stretch',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1d4ed8',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  addButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+    paddingVertical: 8,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  closeModalButton: {
+    backgroundColor: '#e0e7ef',
+    borderRadius: 8,
+    paddingVertical: 10,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  closeModalButtonText: {
+    color: '#2563eb',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+}); 
