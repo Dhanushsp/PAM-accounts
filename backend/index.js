@@ -9,6 +9,8 @@ import salesRoutes from "./routes/sales.js"
 import expensesRoutes from "./routes/expenses.js";
 import bcrypt from "bcrypt";
 import Admin from "./models/Admin.js";
+import vendorsRoutes from './routes/vendors.js';
+import purchasesRoutes from './routes/purchases.js';
 
 dotenv.config();
 const app = express();
@@ -30,8 +32,8 @@ app.use("/api/addproducts", addproductsRoutes);
 app.use("/api/products", addproductsRoutes)
 app.use("/api/sales", salesRoutes);
 app.use("/api/expenses", expensesRoutes);
-app.use("/api/vendors", require('./routes/vendors'));
-app.use("/api/purchases", require('./routes/purchases'));
+app.use("/api/vendors", vendorsRoutes);
+app.use("/api/purchases", purchasesRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is working');
