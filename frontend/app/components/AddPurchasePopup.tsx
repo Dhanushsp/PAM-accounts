@@ -136,20 +136,20 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
 
   return (
     <View className="absolute inset-0 bg-black bg-opacity-50 flex-1 justify-center items-center z-50">
-      <View className="bg-white rounded-2xl mx-6 w-full max-w-sm max-h-[85%]" style={{ marginBottom: insets.bottom + 20, marginTop: insets.top + 20 }}>
+      <View className="bg-white rounded-2xl mx-4 w-full max-w-sm" style={{ maxHeight: '90%', minHeight: 600 }}>
         {/* Header */}
-        <View className="flex-row items-center justify-between p-6 border-b border-gray-200">
-          <Text className="text-xl font-bold text-gray-800">Add Purchase</Text>
+        <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
+          <Text className="text-lg font-bold text-gray-800">Add Purchase</Text>
           <Pressable
             onPress={onClose}
             className="bg-gray-100 rounded-full p-2"
           >
-            <MaterialIcons name="close" size={20} color="#64748b" />
+            <MaterialIcons name="close" size={18} color="#64748b" />
           </Pressable>
         </View>
 
         {/* Form */}
-        <ScrollView className="flex-1 p-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+        <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
           <View className="space-y-4">
             {/* Item Selection */}
             <View>
@@ -221,15 +221,15 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
                   value={form.quantity}
                   onChangeText={(text) => setForm(prev => ({ ...prev, quantity: text }))}
                   keyboardType="numeric"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
                 />
               </View>
               <View className="flex-1">
                 <Text className="text-sm font-medium text-gray-700 mb-2">Unit</Text>
-                <View className="flex-row bg-gray-100 rounded-xl p-1">
+                <View className="flex-row bg-gray-100 rounded-lg p-1">
                   <TouchableOpacity
                     onPress={() => setForm(prev => ({ ...prev, unit: 'packs' }))}
-                    className={`flex-1 py-2 px-3 rounded-lg ${form.unit === 'packs' ? 'bg-white' : 'bg-transparent'}`}
+                    className={`flex-1 py-2 px-3 rounded-md ${form.unit === 'packs' ? 'bg-white' : 'bg-transparent'}`}
                   >
                     <Text className={`text-center text-sm font-medium ${form.unit === 'packs' ? 'text-blue-600' : 'text-gray-600'}`}>
                       Packs
@@ -237,7 +237,7 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setForm(prev => ({ ...prev, unit: 'kgs' }))}
-                    className={`flex-1 py-2 px-3 rounded-lg ${form.unit === 'kgs' ? 'bg-white' : 'bg-transparent'}`}
+                    className={`flex-1 py-2 px-3 rounded-md ${form.unit === 'kgs' ? 'bg-white' : 'bg-transparent'}`}
                   >
                     <Text className={`text-center text-sm font-medium ${form.unit === 'kgs' ? 'text-blue-600' : 'text-gray-600'}`}>
                       Kgs
@@ -255,7 +255,7 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
                 value={form.pricePerUnit}
                 onChangeText={(text) => setForm(prev => ({ ...prev, pricePerUnit: text }))}
                 keyboardType="numeric"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
               />
             </View>
 
@@ -279,7 +279,7 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
                 value={form.amountPaid}
                 onChangeText={(text) => setForm(prev => ({ ...prev, amountPaid: text }))}
                 keyboardType="numeric"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
               />
             </View>
 
@@ -292,7 +292,7 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
         </ScrollView>
 
         {/* Footer */}
-        <View className="p-6 border-t border-gray-200">
+        <View className="p-4 border-t border-gray-200">
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={loading}

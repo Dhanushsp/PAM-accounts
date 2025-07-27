@@ -81,20 +81,20 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
 
   return (
     <View className="absolute inset-0 bg-black bg-opacity-50 flex-1 justify-center items-center z-50">
-      <View className="bg-white rounded-2xl mx-6 w-full max-w-sm" style={{ marginBottom: insets.bottom + 20, marginTop: insets.top + 20 }}>
+      <View className="bg-white rounded-2xl mx-4 w-full max-w-sm" style={{ maxHeight: '90%', minHeight: 500 }}>
         {/* Header */}
-        <View className="flex-row items-center justify-between p-6 border-b border-gray-200">
-          <Text className="text-xl font-bold text-gray-800">Add Vendor</Text>
+        <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
+          <Text className="text-lg font-bold text-gray-800">Add Vendor</Text>
           <Pressable
             onPress={onClose}
             className="bg-gray-100 rounded-full p-2"
           >
-            <MaterialIcons name="close" size={20} color="#64748b" />
+            <MaterialIcons name="close" size={18} color="#64748b" />
           </Pressable>
         </View>
 
         {/* Form */}
-        <View className="flex-1 p-6">
+        <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
           <View className="space-y-4">
             {/* Name */}
             <View>
@@ -103,7 +103,7 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
                 placeholder="Enter vendor name"
                 value={form.name}
                 onChangeText={(text) => setForm(prev => ({ ...prev, name: text }))}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
               />
             </View>
 
@@ -114,7 +114,7 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
                 placeholder="Enter contact information"
                 value={form.contact}
                 onChangeText={(text) => setForm(prev => ({ ...prev, contact: text }))}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
               />
             </View>
 
@@ -126,7 +126,7 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
                 value={form.credit}
                 onChangeText={(text) => setForm(prev => ({ ...prev, credit: text }))}
                 keyboardType="numeric"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
               />
             </View>
 
@@ -140,13 +140,13 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
                   placeholder="Enter item name"
                   value={newItem}
                   onChangeText={setNewItem}
-                  className="flex-1 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                  className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
                 />
                 <TouchableOpacity
                   onPress={handleAddItem}
-                  className="bg-blue-600 px-4 py-3 rounded-xl"
+                  className="bg-blue-600 px-3 py-2.5 rounded-lg"
                 >
-                  <MaterialIcons name="add" size={20} color="#fff" />
+                  <MaterialIcons name="add" size={18} color="#fff" />
                 </TouchableOpacity>
               </View>
 
@@ -168,10 +168,10 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
               )}
             </View>
           </View>
-        </View>
+        </ScrollView>
 
         {/* Footer */}
-        <View className="p-6 border-t border-gray-200">
+        <View className="p-4 border-t border-gray-200">
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={loading}
