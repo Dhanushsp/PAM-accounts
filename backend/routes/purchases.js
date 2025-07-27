@@ -1,5 +1,5 @@
 import express from 'express';
-import Purchase from '../models/Purchase.js';
+import Purchase from '../models/Purchase.js'
 import Vendor from '../models/Vendor.js';
 import auth from '../middleware/auth.js';
 
