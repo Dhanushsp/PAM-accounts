@@ -1,3 +1,4 @@
+// backend/models/Vendor.js
 import mongoose from 'mongoose';
 
 const VendorSchema = new mongoose.Schema({
@@ -15,10 +16,12 @@ const VendorSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  items: [{
-    type: String,
-    trim: true
-  }],
+  items: [
+    {
+      type: String,
+      trim: true
+    }
+  ],
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -28,4 +31,5 @@ const VendorSchema = new mongoose.Schema({
   timestamps: true
 });
 
-export default mongoose.model('Vendor', VendorSchema);
+const Vendor = mongoose.model('Vendor', VendorSchema);
+export default Vendor;

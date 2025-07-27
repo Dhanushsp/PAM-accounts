@@ -1,3 +1,4 @@
+// backend/models/Purchase.js
 import mongoose from 'mongoose';
 
 const PurchaseSchema = new mongoose.Schema({
@@ -58,5 +59,5 @@ const PurchaseSchema = new mongoose.Schema({
   timestamps: true
 });
 
-export default mongoose.model('Purchase', PurchaseSchema);
-
+const Purchase = mongoose.model('Purchase', PurchaseSchema);
+export default Purchase;
