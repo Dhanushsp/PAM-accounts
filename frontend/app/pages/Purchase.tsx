@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Pressable } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import AddVendorPopup from '../components/AddVendorPopup';
 import AddPurchasePopup from '../components/AddPurchasePopup';
 
@@ -154,39 +157,107 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
     return Array.from(items);
   };
 
+  const handleDownloadData = async () => {
+    if (vendors.length === 0 && purchases.length === 0) {
+      Alert.alert('No Data', 'No vendors or purchases data available to download.');
+      return;
+    }
+
+    try {
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Vendors sheet
+      if (vendors.length > 0) {
+        const vendorsData = vendors.map(v => ({
+          'Vendor Name': v.name,
+          'Contact': v.contact,
+          'Credit': v.credit,
+          'Items': v.items.join(', '),
+        }));
+        const vendorsWs = XLSX.utils.json_to_sheet(vendorsData);
+        XLSX.utils.book_append_sheet(wb, vendorsWs, 'Vendors');
+      }
+      
+      // Purchases sheet
+      if (purchases.length > 0) {
+        const purchasesData = purchases.map(p => ({
+          'Date': new Date(p.date).toLocaleDateString(),
+          'Item': p.item,
+          'Vendor': p.vendorName,
+          'Quantity': p.quantity,
+          'Unit': p.unit,
+          'Price per Unit': p.pricePerUnit,
+          'Total Price': p.totalPrice,
+          'Amount Paid': p.amountPaid,
+          'Updated Credit': p.updatedCredit,
+        }));
+        const purchasesWs = XLSX.utils.json_to_sheet(purchasesData);
+        XLSX.utils.book_append_sheet(wb, purchasesWs, 'Purchases');
+      }
+      
+      // Generate and share file
+      const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+      const uri = FileSystem.cacheDirectory + 'purchase_data.xlsx';
+      await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
+      await Sharing.shareAsync(uri, { 
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
+        dialogTitle: 'Download Purchase Data' 
+      });
+    } catch (error) {
+      console.error('Error downloading data:', error);
+      Alert.alert('Error', 'Failed to download data');
+    }
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-blue-50">
-      <View className="flex-1 p-4">
+    <SafeAreaView style={styles.container}>
+      <View style={styles.mainContent}>
         {/* Header */}
-        <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
+        <View style={styles.header}>
           <Pressable
             onPress={onBack}
-            className="bg-gray-100 rounded-full p-2"
-            style={{ elevation: 2 }}
+            style={styles.backButton}
           >
             <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
           </Pressable>
-          <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
+          <Text style={styles.headerTitle}>
             Purchase Management
           </Text>
-          <View style={{ width: 40 }} />
+          <TouchableOpacity
+            onPress={handleDownloadData}
+            style={styles.downloadButton}
+          >
+            <MaterialIcons name="download" size={20} color="#f59e42" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Download Section */}
+        <View style={styles.downloadSection}>
+          <TouchableOpacity
+            onPress={handleDownloadData}
+            style={styles.downloadButtonLarge}
+          >
+            <MaterialIcons name="download" size={20} color="#fff" />
+            <Text style={styles.downloadButtonText}>Download Purchase Data</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Tab Navigation */}
-        <View className="flex-row bg-white rounded-xl p-1 mb-6 shadow-sm">
+        <View style={styles.tabContainer}>
           <TouchableOpacity
             onPress={() => setActiveTab('vendor')}
-            className={`flex-1 py-4 px-4 rounded-lg ${activeTab === 'vendor' ? 'bg-blue-600' : 'bg-transparent'}`}
+            style={[styles.tabButton, activeTab === 'vendor' && styles.activeTabButton]}
           >
-            <Text className={`text-center font-semibold text-base ${activeTab === 'vendor' ? 'text-white' : 'text-gray-600'}`}>
+            <Text style={[styles.tabText, activeTab === 'vendor' && styles.activeTabText]}>
               Vendors
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setActiveTab('purchases')}
-            className={`flex-1 py-4 px-4 rounded-lg ${activeTab === 'purchases' ? 'bg-blue-600' : 'bg-transparent'}`}
+            style={[styles.tabButton, activeTab === 'purchases' && styles.activeTabButton]}
           >
-            <Text className={`text-center font-semibold text-base ${activeTab === 'purchases' ? 'text-white' : 'text-gray-600'}`}>
+            <Text style={[styles.tabText, activeTab === 'purchases' && styles.activeTabText]}>
               List of Purchases
             </Text>
           </TouchableOpacity>
@@ -194,53 +265,49 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
 
         {/* Vendor Tab */}
         {activeTab === 'vendor' && (
-          <View className="flex-1">
+          <View style={styles.tabContent}>
             {loading ? (
-              <View className="flex-1 items-center justify-center">
-                <Text className="text-gray-500 text-lg">Loading vendors...</Text>
+              <View style={styles.centerContainer}>
+                <Text style={styles.loadingText}>Loading vendors...</Text>
               </View>
             ) : vendors.length === 0 ? (
-              <View className="flex-1 items-center justify-center">
-                <Text className="text-gray-500 text-lg">No vendors found</Text>
+              <View style={styles.centerContainer}>
+                <Text style={styles.emptyText}>No vendors found</Text>
               </View>
             ) : (
-              <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
                 {vendors.map((vendor) => (
-                  <View
-                    key={vendor._id}
-                    className="bg-white rounded-xl p-5 mb-4 border border-gray-100 shadow-sm"
-                  >
-                    <View className="flex-row justify-between items-start">
-                      <View className="flex-1">
-                        <Text className="text-xl font-bold text-gray-800 mb-3">
+                  <View key={vendor._id} style={styles.vendorCard}>
+                    <View style={styles.vendorCardContent}>
+                      <View style={styles.vendorInfo}>
+                        <Text style={styles.vendorName}>
                           {vendor.name}
                         </Text>
-                        <View className="space-y-2">
-                          <View className="flex-row items-center">
+                        <View style={styles.vendorDetails}>
+                          <View style={styles.detailRow}>
                             <MaterialIcons name="phone" size={16} color="#6b7280" />
-                            <Text className="text-sm text-gray-600 ml-2">
+                            <Text style={styles.detailText}>
                               {vendor.contact}
                             </Text>
                           </View>
-                          <View className="flex-row items-center">
+                          <View style={styles.detailRow}>
                             <MaterialIcons name="account-balance-wallet" size={16} color="#6b7280" />
-                            <Text className="text-sm text-gray-600 ml-2">
+                            <Text style={styles.detailText}>
                               Credit: ₹{vendor.credit.toLocaleString()}
                             </Text>
                           </View>
-                          <View className="flex-row items-start">
+                          <View style={styles.detailRow}>
                             <MaterialIcons name="inventory" size={16} color="#6b7280" style={{ marginTop: 2 }} />
-                            <Text className="text-sm text-gray-600 ml-2 flex-1">
+                            <Text style={[styles.detailText, styles.itemsText]}>
                               Items: {vendor.items.join(', ')}
                             </Text>
                           </View>
                         </View>
                       </View>
-                      <View className="flex-row gap-2 ml-3">
+                      <View style={styles.vendorActions}>
                         <Pressable
                           onPress={() => handleDeleteVendor(vendor)}
-                          className="bg-red-100 rounded-full p-3"
-                          style={{ elevation: 1 }}
+                          style={styles.deleteButton}
                         >
                           <MaterialIcons name="delete" size={18} color="#dc2626" />
                         </Pressable>
@@ -388,52 +455,26 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
 
       {/* Add Vendor Button */}
       {activeTab === 'vendor' && (
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 12, alignItems: 'center' }}>
+        <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 12 }]}>
           <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#2563eb',
-              borderRadius: 16,
-              paddingVertical: 14,
-              paddingHorizontal: 32,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.10,
-              shadowRadius: 4,
-              elevation: 2,
-            }}
+            style={styles.addVendorButton}
             onPress={() => setShowAddVendorPopup(true)}
           >
             <MaterialIcons name="add" size={22} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Add Vendor</Text>
+            <Text style={styles.buttonText}>Add Vendor</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {/* Add Purchase Button */}
       {activeTab === 'purchases' && (
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 12, alignItems: 'center' }}>
+        <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 12 }]}>
           <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#059669',
-              borderRadius: 16,
-              paddingVertical: 14,
-              paddingHorizontal: 32,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.10,
-              shadowRadius: 4,
-              elevation: 2,
-            }}
+            style={styles.addPurchaseButton}
             onPress={() => setShowAddPurchasePopup(true)}
           >
             <MaterialIcons name="add-shopping-cart" size={22} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Add Purchase</Text>
+            <Text style={styles.buttonText}>Add Purchase</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -454,4 +495,221 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
       )}
     </SafeAreaView>
   );
-} 
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#eff6ff', // blue-50
+  },
+  mainContent: {
+    flex: 1,
+    padding: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 24,
+    marginTop: 4,
+  },
+  backButton: {
+    backgroundColor: '#f3f4f6', // gray-100
+    borderRadius: 20,
+    padding: 8,
+    elevation: 2,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1d4ed8', // blue-700
+    flex: 1,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  activeTabButton: {
+    backgroundColor: '#2563eb', // blue-600
+  },
+  tabText: {
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#4b5563', // gray-600
+  },
+  activeTabText: {
+    color: '#ffffff',
+  },
+  tabContent: {
+    flex: 1,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#6b7280', // gray-500
+    fontSize: 18,
+  },
+  emptyText: {
+    color: '#6b7280', // gray-500
+    fontSize: 18,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  vendorCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#f3f4f6', // gray-100
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  vendorCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  vendorInfo: {
+    flex: 1,
+  },
+  vendorName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937', // gray-800
+    marginBottom: 12,
+  },
+  vendorDetails: {
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#4b5563', // gray-600
+    marginLeft: 8,
+  },
+  itemsText: {
+    flex: 1,
+  },
+  vendorActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginLeft: 12,
+  },
+  deleteButton: {
+    backgroundColor: '#fef2f2', // red-100
+    borderRadius: 20,
+    padding: 12,
+    elevation: 1,
+  },
+  floatingButtonContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  addVendorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb', // blue-600
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  addPurchaseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669', // green-600
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  downloadButton: {
+    padding: 8,
+    backgroundColor: '#f3f4f6', // gray-100
+    borderRadius: 20,
+    elevation: 2,
+  },
+  downloadSection: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  downloadButtonLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb', // blue-600
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  downloadButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+}); 

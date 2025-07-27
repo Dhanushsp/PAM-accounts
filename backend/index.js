@@ -9,8 +9,6 @@ import salesRoutes from "./routes/sales.js"
 import expensesRoutes from "./routes/expenses.js";
 import bcrypt from "bcrypt";
 import Admin from "./models/Admin.js";
-import vendorsRoutes from './routes/vendors.js';
-import purchasesRoutes from './routes/purchases.js';
 
 dotenv.config();
 const app = express();
@@ -25,15 +23,33 @@ mongoose.connect(process.env.MONGO_URL)
   .catch(err => console.error(err));
 
 
-
 app.use("/api", authRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/addproducts", addproductsRoutes);
 app.use("/api/products", addproductsRoutes)
 app.use("/api/sales", salesRoutes);
 app.use("/api/expenses", expensesRoutes);
-app.use("/api/vendors", vendorsRoutes);
-app.use("/api/purchases", purchasesRoutes);
+import vendorRoutes from './routes/vendors.js';
+import purchaseRoutes from './routes/purchases.js';
+import savingsTypesRoutes from './routes/savings-types.js';
+import savingsEntriesRoutes from './routes/savings-entries.js';
+import incomeTypesRoutes from './routes/income-types.js';
+import incomeEntriesRoutes from './routes/income-entries.js';
+import payableTypesRoutes from './routes/payable-types.js';
+import payableEntriesRoutes from './routes/payable-entries.js';
+import moneyLentTypesRoutes from './routes/money-lent-types.js';
+import moneyLentEntriesRoutes from './routes/money-lent-entries.js';
+
+app.use("/api/vendors", vendorRoutes);
+app.use("/api/purchases", purchaseRoutes);
+app.use("/api/savings-types", savingsTypesRoutes);
+app.use("/api/savings-entries", savingsEntriesRoutes);
+app.use("/api/income-types", incomeTypesRoutes);
+app.use("/api/income-entries", incomeEntriesRoutes);
+app.use("/api/payable-types", payableTypesRoutes);
+app.use("/api/payable-entries", payableEntriesRoutes);
+app.use("/api/money-lent-types", moneyLentTypesRoutes);
+app.use("/api/money-lent-entries", moneyLentEntriesRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is working');

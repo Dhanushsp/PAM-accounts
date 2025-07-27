@@ -22,6 +22,7 @@ import { getPendingActions, saveData, getData, addPendingAction, KEYS } from '..
 import { getToken } from '../lib/auth';
 import NetInfo from '@react-native-community/netinfo';
 import Purchase from './Purchase';
+import PersonalFinance from './PersonalFinance';
 
 interface Customer {
   _id: string;
@@ -350,6 +351,10 @@ export default function Home({ token, onLogout }: HomeProps) {
 
   if (currentPage === 'purchase') {
     return <Purchase token={token} onBack={() => setCurrentPage('home')} />;
+  }
+
+  if (currentPage === 'personal-finance') {
+    return <PersonalFinance token={token} onBack={() => setCurrentPage('home')} />;
   }
 
   return (

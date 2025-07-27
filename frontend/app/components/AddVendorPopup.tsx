@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -80,71 +80,71 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
   };
 
   return (
-    <View className="absolute inset-0 bg-black bg-opacity-50 flex-1 justify-center items-center z-50">
-      <View className="bg-white rounded-2xl mx-4 w-full max-w-sm" style={{ maxHeight: '90%', minHeight: 500 }}>
+    <View style={styles.overlay}>
+      <View style={styles.modalContainer}>
         {/* Header */}
-        <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
-          <Text className="text-lg font-bold text-gray-800">Add Vendor</Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Add Vendor</Text>
           <Pressable
             onPress={onClose}
-            className="bg-gray-100 rounded-full p-2"
+            style={styles.closeButton}
           >
             <MaterialIcons name="close" size={18} color="#64748b" />
           </Pressable>
         </View>
 
         {/* Form */}
-        <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
-          <View className="space-y-4">
+        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.formContent}>
             {/* Name */}
-            <View>
-              <Text className="text-sm font-medium text-gray-700 mb-2">Vendor Name *</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Vendor Name *</Text>
               <TextInput
                 placeholder="Enter vendor name"
                 value={form.name}
                 onChangeText={(text) => setForm(prev => ({ ...prev, name: text }))}
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                style={styles.textInput}
               />
             </View>
 
             {/* Contact */}
-            <View>
-              <Text className="text-sm font-medium text-gray-700 mb-2">Contact *</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Contact *</Text>
               <TextInput
                 placeholder="Enter contact information"
                 value={form.contact}
                 onChangeText={(text) => setForm(prev => ({ ...prev, contact: text }))}
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                style={styles.textInput}
               />
             </View>
 
             {/* Credit */}
-            <View>
-              <Text className="text-sm font-medium text-gray-700 mb-2">Credit Amount</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Credit Amount</Text>
               <TextInput
                 placeholder="Enter credit amount"
                 value={form.credit}
                 onChangeText={(text) => setForm(prev => ({ ...prev, credit: text }))}
                 keyboardType="numeric"
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                style={styles.textInput}
               />
             </View>
 
             {/* Items */}
-            <View>
-              <Text className="text-sm font-medium text-gray-700 mb-2">Items *</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Items *</Text>
               
               {/* Add Item Input */}
-              <View className="flex-row gap-2 mb-3">
+              <View style={styles.addItemContainer}>
                 <TextInput
                   placeholder="Enter item name"
                   value={newItem}
                   onChangeText={setNewItem}
-                  className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                  style={styles.itemInput}
                 />
                 <TouchableOpacity
                   onPress={handleAddItem}
-                  className="bg-blue-600 px-3 py-2.5 rounded-lg"
+                  style={styles.addItemButton}
                 >
                   <MaterialIcons name="add" size={18} color="#fff" />
                 </TouchableOpacity>
@@ -152,13 +152,13 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
 
               {/* Items List */}
               {form.items.length > 0 && (
-                <View className="space-y-2">
+                <View style={styles.itemsList}>
                   {form.items.map((item, index) => (
-                    <View key={index} className="flex-row items-center justify-between bg-gray-100 rounded-lg p-3">
-                      <Text className="text-gray-800 flex-1">{item}</Text>
+                    <View key={index} style={styles.itemRow}>
+                      <Text style={styles.itemText}>{item}</Text>
                       <TouchableOpacity
                         onPress={() => handleRemoveItem(index)}
-                        className="bg-red-100 rounded-full p-1 ml-2"
+                        style={styles.removeItemButton}
                       >
                         <MaterialIcons name="close" size={16} color="#dc2626" />
                       </TouchableOpacity>
@@ -171,13 +171,13 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
         </ScrollView>
 
         {/* Footer */}
-        <View className="p-4 border-t border-gray-200">
+        <View style={styles.footer}>
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={loading}
-            className={`w-full py-3 rounded-xl ${loading ? 'bg-gray-400' : 'bg-blue-600'}`}
+            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
           >
-            <Text className="text-white text-center font-semibold text-lg">
+            <Text style={styles.submitButtonText}>
               {loading ? 'Adding...' : 'Add Vendor'}
             </Text>
           </TouchableOpacity>
@@ -185,4 +185,140 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
       </View>
     </View>
   );
-} 
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '90%',
+    minHeight: 500,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  closeButton: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    padding: 8,
+  },
+  formContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  formContent: {
+    gap: 16,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  textInput: {
+    width: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#f9fafb',
+    color: '#1f2937',
+    fontSize: 16,
+  },
+  addItemContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  itemInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#f9fafb',
+    color: '#1f2937',
+    fontSize: 16,
+  },
+  addItemButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemsList: {
+    gap: 8,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    padding: 12,
+  },
+  itemText: {
+    color: '#1f2937',
+    flex: 1,
+    fontSize: 14,
+  },
+  removeItemButton: {
+    backgroundColor: '#fef2f2',
+    borderRadius: 20,
+    padding: 4,
+    marginLeft: 8,
+  },
+  footer: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  submitButton: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#2563eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  submitButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 18,
+  },
+}); 

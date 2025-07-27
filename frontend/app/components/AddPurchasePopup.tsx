@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -135,40 +135,40 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
   };
 
   return (
-    <View className="absolute inset-0 bg-black bg-opacity-50 flex-1 justify-center items-center z-50">
-      <View className="bg-white rounded-2xl mx-4 w-full max-w-sm" style={{ maxHeight: '90%', minHeight: 600 }}>
+    <View style={styles.overlay}>
+      <View style={styles.modalContainer}>
         {/* Header */}
-        <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
-          <Text className="text-lg font-bold text-gray-800">Add Purchase</Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Add Purchase</Text>
           <Pressable
             onPress={onClose}
-            className="bg-gray-100 rounded-full p-2"
+            style={styles.closeButton}
           >
             <MaterialIcons name="close" size={18} color="#64748b" />
           </Pressable>
         </View>
 
         {/* Form */}
-        <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-          <View className="space-y-4">
+        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+          <View style={styles.formContent}>
             {/* Item Selection */}
-            <View>
-              <Text className="text-sm font-medium text-gray-700 mb-2">Select Item *</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Select Item *</Text>
               {getUniqueItems().length === 0 ? (
-                <View className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                  <Text className="text-sm text-yellow-800 text-center">
+                <View style={styles.warningContainer}>
+                  <Text style={styles.warningText}>
                     No items found. Please add items to vendors first.
                   </Text>
                 </View>
               ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.itemsScrollView}>
                   {getUniqueItems().map((item) => (
                     <TouchableOpacity
                       key={item}
                       onPress={() => setForm(prev => ({ ...prev, item }))}
-                      className={`px-4 py-2 rounded-full mr-2 ${form.item === item ? 'bg-blue-600' : 'bg-gray-200'}`}
+                      style={[styles.itemButton, form.item === item && styles.selectedItemButton]}
                     >
-                      <Text className={`text-sm font-medium ${form.item === item ? 'text-white' : 'text-gray-700'}`}>
+                      <Text style={[styles.itemButtonText, form.item === item && styles.selectedItemButtonText]}>
                         {item}
                       </Text>
                     </TouchableOpacity>
@@ -178,23 +178,23 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
             </View>
 
             {/* Vendor Selection */}
-            <View>
-              <Text className="text-sm font-medium text-gray-700 mb-2">Select Vendor *</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Select Vendor *</Text>
               {vendors.length === 0 ? (
-                <View className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                  <Text className="text-sm text-yellow-800 text-center">
+                <View style={styles.warningContainer}>
+                  <Text style={styles.warningText}>
                     No vendors found. Please add vendors first.
                   </Text>
                 </View>
               ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.itemsScrollView}>
                   {vendors.map((vendor) => (
                     <TouchableOpacity
                       key={vendor._id}
                       onPress={() => handleVendorSelect(vendor)}
-                      className={`px-4 py-2 rounded-full mr-2 ${form.vendor === vendor._id ? 'bg-blue-600' : 'bg-gray-200'}`}
+                      style={[styles.itemButton, form.vendor === vendor._id && styles.selectedItemButton]}
                     >
-                      <Text className={`text-sm font-medium ${form.vendor === vendor._id ? 'text-white' : 'text-gray-700'}`}>
+                      <Text style={[styles.itemButtonText, form.vendor === vendor._id && styles.selectedItemButtonText]}>
                         {vendor.name}
                       </Text>
                     </TouchableOpacity>
@@ -205,41 +205,41 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
 
             {/* Vendor Credit Display */}
             {selectedVendor && (
-              <View className="bg-blue-50 rounded-lg p-3">
-                <Text className="text-sm text-blue-800">
+              <View style={styles.creditContainer}>
+                <Text style={styles.creditText}>
                   Vendor Credit: ₹{selectedVendor.credit}
                 </Text>
               </View>
             )}
 
             {/* Quantity and Unit */}
-            <View className="flex-row gap-2">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Quantity *</Text>
+            <View style={styles.rowContainer}>
+              <View style={styles.halfContainer}>
+                <Text style={styles.label}>Quantity *</Text>
                 <TextInput
                   placeholder="Enter quantity"
                   value={form.quantity}
                   onChangeText={(text) => setForm(prev => ({ ...prev, quantity: text }))}
                   keyboardType="numeric"
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                  style={styles.textInput}
                 />
               </View>
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Unit</Text>
-                <View className="flex-row bg-gray-100 rounded-lg p-1">
+              <View style={styles.halfContainer}>
+                <Text style={styles.label}>Unit</Text>
+                <View style={styles.unitContainer}>
                   <TouchableOpacity
                     onPress={() => setForm(prev => ({ ...prev, unit: 'packs' }))}
-                    className={`flex-1 py-2 px-3 rounded-md ${form.unit === 'packs' ? 'bg-white' : 'bg-transparent'}`}
+                    style={[styles.unitButton, form.unit === 'packs' && styles.selectedUnitButton]}
                   >
-                    <Text className={`text-center text-sm font-medium ${form.unit === 'packs' ? 'text-blue-600' : 'text-gray-600'}`}>
+                    <Text style={[styles.unitButtonText, form.unit === 'packs' && styles.selectedUnitButtonText]}>
                       Packs
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setForm(prev => ({ ...prev, unit: 'kgs' }))}
-                    className={`flex-1 py-2 px-3 rounded-md ${form.unit === 'kgs' ? 'bg-white' : 'bg-transparent'}`}
+                    style={[styles.unitButton, form.unit === 'kgs' && styles.selectedUnitButton]}
                   >
-                    <Text className={`text-center text-sm font-medium ${form.unit === 'kgs' ? 'text-blue-600' : 'text-gray-600'}`}>
+                    <Text style={[styles.unitButtonText, form.unit === 'kgs' && styles.selectedUnitButtonText]}>
                       Kgs
                     </Text>
                   </TouchableOpacity>
@@ -248,57 +248,57 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
             </View>
 
             {/* Price per Unit */}
-            <View>
-              <Text className="text-sm font-medium text-gray-700 mb-2">Price per {form.unit} *</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Price per {form.unit} *</Text>
               <TextInput
                 placeholder={`Enter price per ${form.unit}`}
                 value={form.pricePerUnit}
                 onChangeText={(text) => setForm(prev => ({ ...prev, pricePerUnit: text }))}
                 keyboardType="numeric"
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                style={styles.textInput}
               />
             </View>
 
             {/* Total Purchase Price */}
-            <View className="bg-gray-50 rounded-lg p-3">
-              <Text className="text-sm text-gray-600">Total Purchase Price</Text>
-              <Text className="text-lg font-bold text-gray-800">₹{totalPurchasePrice.toFixed(2)}</Text>
+            <View style={styles.totalContainer}>
+              <Text style={styles.totalLabel}>Total Purchase Price</Text>
+              <Text style={styles.totalValue}>₹{totalPurchasePrice.toFixed(2)}</Text>
             </View>
 
             {/* Total Amount to be Paid */}
-            <View className="bg-blue-50 rounded-lg p-3">
-              <Text className="text-sm text-blue-600">Total Amount to be Paid</Text>
-              <Text className="text-lg font-bold text-blue-800">₹{totalAmountToBePaid.toFixed(2)}</Text>
+            <View style={styles.totalAmountContainer}>
+              <Text style={styles.totalAmountLabel}>Total Amount to be Paid</Text>
+              <Text style={styles.totalAmountValue}>₹{totalAmountToBePaid.toFixed(2)}</Text>
             </View>
 
             {/* Amount Paid */}
-            <View>
-              <Text className="text-sm font-medium text-gray-700 mb-2">Amount Paid *</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Amount Paid *</Text>
               <TextInput
                 placeholder="Enter amount paid"
                 value={form.amountPaid}
                 onChangeText={(text) => setForm(prev => ({ ...prev, amountPaid: text }))}
                 keyboardType="numeric"
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-800 text-base"
+                style={styles.textInput}
               />
             </View>
 
             {/* Updated Credit */}
-            <View className="bg-green-50 rounded-lg p-3">
-              <Text className="text-sm text-green-600">Updated Credit</Text>
-              <Text className="text-lg font-bold text-green-800">₹{updatedCredit.toFixed(2)}</Text>
+            <View style={styles.updatedCreditContainer}>
+              <Text style={styles.updatedCreditLabel}>Updated Credit</Text>
+              <Text style={styles.updatedCreditValue}>₹{updatedCredit.toFixed(2)}</Text>
             </View>
           </View>
         </ScrollView>
 
         {/* Footer */}
-        <View className="p-4 border-t border-gray-200">
+        <View style={styles.footer}>
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={loading}
-            className={`w-full py-3 rounded-xl ${loading ? 'bg-gray-400' : 'bg-green-600'}`}
+            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
           >
-            <Text className="text-white text-center font-semibold text-lg">
+            <Text style={styles.submitButtonText}>
               {loading ? 'Adding...' : 'Purchase'}
             </Text>
           </TouchableOpacity>
@@ -306,4 +306,210 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
       </View>
     </View>
   );
-} 
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '90%',
+    minHeight: 600,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  closeButton: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    padding: 8,
+  },
+  formContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  formContent: {
+    gap: 16,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  warningContainer: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  warningText: {
+    fontSize: 14,
+    color: '#92400e',
+    textAlign: 'center',
+  },
+  itemsScrollView: {
+    flexDirection: 'row',
+  },
+  itemButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    marginRight: 8,
+  },
+  selectedItemButton: {
+    backgroundColor: '#2563eb',
+  },
+  itemButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  selectedItemButtonText: {
+    color: '#ffffff',
+  },
+  creditContainer: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 8,
+    padding: 12,
+  },
+  creditText: {
+    fontSize: 14,
+    color: '#1e40af',
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  halfContainer: {
+    flex: 1,
+  },
+  unitContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    padding: 4,
+  },
+  unitButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+  },
+  selectedUnitButton: {
+    backgroundColor: '#ffffff',
+  },
+  unitButtonText: {
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4b5563',
+  },
+  selectedUnitButtonText: {
+    color: '#2563eb',
+  },
+  textInput: {
+    width: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#f9fafb',
+    color: '#1f2937',
+    fontSize: 16,
+  },
+  totalContainer: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 12,
+  },
+  totalLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  totalValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  totalAmountContainer: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 8,
+    padding: 12,
+  },
+  totalAmountLabel: {
+    fontSize: 14,
+    color: '#1e40af',
+  },
+  totalAmountValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e40af',
+  },
+  updatedCreditContainer: {
+    backgroundColor: '#d1fae5',
+    borderRadius: 8,
+    padding: 12,
+  },
+  updatedCreditLabel: {
+    fontSize: 14,
+    color: '#065f46',
+  },
+  updatedCreditValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#065f46',
+  },
+  footer: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  submitButton: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#059669',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  submitButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 18,
+  },
+}); 
