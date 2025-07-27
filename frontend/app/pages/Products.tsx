@@ -5,6 +5,12 @@ import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddProductPopup from '../components/AddProductPopup';
+import { useSync } from '../lib/useSync';
+import { getPendingActions, saveData, KEYS } from '../lib/storage';
+import NetInfo from '@react-native-community/netinfo';
+import * as XLSX from 'xlsx';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 
 interface Product {
@@ -148,6 +154,51 @@ export default function Products({ onBack, token }: ProductsProps) {
     calculatePricePerKg();
   }, [editForm.pricePerPack, editForm.kgsPerPack]);
 
+  // SYNC LOGIC
+  const syncProducts = async () => {
+    // Get pending actions
+    const pending = await getPendingActions();
+    // Only process product actions
+    const productActions = pending.filter(a => a.type && a.entity === 'product');
+    for (const action of productActions) {
+      if (action.op === 'add') {
+        await axios.post(`${BACKEND_URL}/api/addproducts`, action.data, {
+          headers: { 'Content-Type': 'application/json', Authorization: token }
+        });
+      } else if (action.op === 'edit') {
+        await axios.put(`${BACKEND_URL}/api/products/${action.id}`, action.data, {
+          headers: { 'Content-Type': 'application/json', Authorization: token }
+        });
+      } else if (action.op === 'delete') {
+        await axios.delete(`${BACKEND_URL}/api/products/${action.id}`, {
+          headers: { Authorization: token }
+        });
+      }
+    }
+    // After syncing, refresh products and cache
+    await fetchProducts();
+    await saveData(KEYS.products, products);
+  };
+
+  const { isOnline, isSyncing, lastSync, hasPending, handleSync } = useSync(syncProducts);
+
+  const handleDownloadProducts = async () => {
+    if (!products.length) return;
+    const data = products.map(p => ({
+      Name: p.productName,
+      'Price per Pack': p.pricePerPack,
+      'Kgs per Pack': p.kgsPerPack,
+      'Price per Kg': p.pricePerKg,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Products');
+    const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+    const uri = FileSystem.cacheDirectory + 'products.xlsx';
+    await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
+    await Sharing.shareAsync(uri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Download Products' });
+  };
+
   if (editingProduct) {
     return (
       <SafeAreaView className="flex-1 bg-blue-50">
@@ -222,10 +273,33 @@ export default function Products({ onBack, token }: ProductsProps) {
           <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
             Products
           </Text>
-          <View style={{ width: 40 }} />
+          {/* Sync Button and Status */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              onPress={handleSync}
+              disabled={!isOnline || isSyncing}
+              style={{ backgroundColor: (!isOnline || isSyncing) ? '#e5e7eb' : '#2563eb', borderRadius: 999, padding: 8, marginRight: 4 }}
+            >
+              <MaterialIcons name="sync" size={20} color={(!isOnline || isSyncing) ? '#94a3b8' : '#fff'} />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 12, color: '#64748b', minWidth: 90 }}>
+              {isSyncing ? 'Syncing...' :
+                (!hasPending && isOnline && lastSync && (Date.now() - lastSync.getTime() < 60000)) ? 'Up to date.' :
+                lastSync ? `Last synced: ${lastSync.toLocaleString()}` : 'Not synced yet.'}
+            </Text>
+          </View>
         </View>
 
         {/* Products List */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8, marginBottom: 8 }}>
+          <TouchableOpacity
+            onPress={handleDownloadProducts}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f59e42', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.10, shadowRadius: 4, elevation: 2 }}
+          >
+            <MaterialIcons name="download" size={20} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Download Products</Text>
+          </TouchableOpacity>
+        </View>
         {loading ? (
           <View className="flex-1 items-center justify-center">
             <Text className="text-gray-500 text-lg">Loading products...</Text>
