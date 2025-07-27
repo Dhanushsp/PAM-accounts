@@ -17,6 +17,11 @@ import * as Sharing from 'expo-sharing';
 import AddExpensePopup from '../components/AddExpensePopup';
 import CustomersPage from './Customers';
 import Expenses from './Expenses';
+import { useSync } from '../lib/useSync';
+import { getPendingActions, saveData, getData, addPendingAction, KEYS } from '../lib/storage';
+import { getToken } from '../lib/auth';
+import NetInfo from '@react-native-community/netinfo';
+import Purchase from './Purchase';
 
 interface Customer {
   _id: string;
@@ -46,6 +51,12 @@ export default function Home({ token, onLogout }: HomeProps) {
 
   const fetchCustomers = async () => {
     try {
+      // Check network status
+      const netInfo = await NetInfo.fetch();
+      const isOnline = netInfo.isConnected;
+      
+      if (isOnline) {
+        // Online: fetch from API and cache
       const res = await axios.get(`${API_BASE_URL}/api/customers?search=${search}`, {
         headers: { Authorization: token },
       });
@@ -76,16 +87,65 @@ export default function Home({ token, onLogout }: HomeProps) {
       }
       
       setCustomers(sortedCustomers);
+        // Cache the data
+        await saveData(KEYS.customers, sortedCustomers);
 
       if (selectedCustomer) {
         const customerRes = await axios.get(`${API_BASE_URL}/api/customers/${selectedCustomer._id}`, {
           headers: { Authorization: token },
         });
         setSelectedCustomer(customerRes.data);
+        }
+      } else {
+        // Offline: load from cache
+        const cachedCustomers = await getData<Customer[]>(KEYS.customers);
+        if (cachedCustomers) {
+          // Apply search filter to cached data
+          let filteredCustomers = cachedCustomers;
+          if (search) {
+            filteredCustomers = cachedCustomers.filter(c => 
+              c.name.toLowerCase().includes(search.toLowerCase())
+            );
+          }
+          
+          // Apply sorting to cached data
+          if (sort === 'recent') {
+            filteredCustomers.sort((a, b) => {
+              const dateA = getLatestPurchaseDate(a);
+              const dateB = getLatestPurchaseDate(b);
+              if (!dateA && !dateB) return 0;
+              if (!dateA) return 1;
+              if (!dateB) return -1;
+              return dateB.getTime() - dateA.getTime();
+            });
+          } else if (sort === 'oldest') {
+            filteredCustomers.sort((a, b) => {
+              const dateA = getLatestPurchaseDate(a);
+              const dateB = getLatestPurchaseDate(b);
+              if (!dateA && !dateB) return 0;
+              if (!dateA) return -1;
+              if (!dateB) return 1;
+              return dateA.getTime() - dateB.getTime();
+            });
+          } else if (sort === 'credit') {
+            filteredCustomers.sort((a, b) => b.credit - a.credit);
+          }
+          
+          setCustomers(filteredCustomers);
+        }
       }
     } catch (error: any) {
       console.error('Error fetching customers:', error);
+      // Try to load from cache as fallback
+      try {
+        const cachedCustomers = await getData<Customer[]>(KEYS.customers);
+        if (cachedCustomers) {
+          setCustomers(cachedCustomers);
+        }
+      } catch (cacheError) {
+        console.error('Error loading from cache:', cacheError);
       Alert.alert('Error', 'Failed to fetch customers. Please check your connection.');
+      }
     }
   };
 
@@ -185,6 +245,52 @@ export default function Home({ token, onLogout }: HomeProps) {
     }
   };
 
+  const syncAll = async () => {
+    const token = await getToken();
+    if (!token) return;
+    const pending = await getPendingActions();
+    // Sync products
+    for (const action of pending.filter(a => a.entity === 'product')) {
+      if (action.op === 'add') {
+        await axios.post(`${API_BASE_URL}/api/addproducts`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+      } else if (action.op === 'edit') {
+        await axios.put(`${API_BASE_URL}/api/products/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+      } else if (action.op === 'delete') {
+        await axios.delete(`${API_BASE_URL}/api/products/${action.id}`, { headers: { Authorization: token } });
+      }
+    }
+    // Sync customers
+    for (const action of pending.filter(a => a.entity === 'customer')) {
+      if (action.op === 'add') {
+        await axios.post(`${API_BASE_URL}/api/customers`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+      } else if (action.op === 'edit') {
+        await axios.put(`${API_BASE_URL}/api/customers/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+      } else if (action.op === 'delete') {
+        await axios.delete(`${API_BASE_URL}/api/customers/${action.id}`, { headers: { Authorization: token } });
+      }
+    }
+    // Sync expenses
+    for (const action of pending.filter(a => a.entity === 'expense')) {
+      try {
+        if (action.op === 'add') {
+          await axios.post(`${API_BASE_URL}/api/expenses`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+        } else if (action.op === 'edit') {
+          await axios.put(`${API_BASE_URL}/api/expenses/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+        } else if (action.op === 'delete') {
+          await axios.delete(`${API_BASE_URL}/api/expenses/${action.id}`, { headers: { Authorization: token } });
+        }
+      } catch (error) {
+        console.error('Error syncing expense action:', error);
+      }
+    }
+    
+    // Refresh and cache all data
+    await fetchCustomers();
+    await saveData(KEYS.customers, customers);
+  };
+
+  const { isOnline, isSyncing, lastSync, hasPending, handleSync } = useSync(syncAll);
+
   useEffect(() => {
     fetchCustomers();
   }, [search, sort]);
@@ -242,6 +348,10 @@ export default function Home({ token, onLogout }: HomeProps) {
     return <Expenses token={token} onBack={() => setCurrentPage('home')} />;
   }
 
+  if (currentPage === 'purchase') {
+    return <Purchase token={token} onBack={() => setCurrentPage('home')} />;
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-blue-50">
       <View className="flex-1 p-3">
@@ -257,6 +367,8 @@ export default function Home({ token, onLogout }: HomeProps) {
         <Text className="text-2xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
           PAM<Text className="text-blue-500">-Accounts</Text>
         </Text>
+          {/* Sync Button and Status */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Pressable
           onPress={onLogout}
           className="bg-red-100 rounded-full p-2 ml-2"
@@ -264,6 +376,7 @@ export default function Home({ token, onLogout }: HomeProps) {
         >
           <MaterialIcons name="logout" size={22} color="#dc2626" />
         </Pressable>
+          </View>
       </View>
 
       {/* Search */}
@@ -292,15 +405,30 @@ export default function Home({ token, onLogout }: HomeProps) {
         })}
       </View>
 
-      {/* Download Button */}
+      {/* Download and Sync Row */}
+      <View className="flex-row items-center justify-center gap-3 mb-3">
       <TouchableOpacity
         onPress={handleDownload}
-        className="flex-row items-center justify-center bg-yellow-500 py-3 rounded-full shadow-md mb-3"
+          className="flex-row items-center justify-center bg-yellow-500 py-3 px-4 rounded-full shadow-md"
         style={{ elevation: 2 }}
       >
         <FontAwesome5 name="download" size={16} color="#fff" />
-        <Text className="text-white text-center font-bold text-base ml-2">Download Customers (Excel)</Text>
+          <Text className="text-white text-center font-bold text-base ml-2">Download Sales</Text>
+        </TouchableOpacity>
+        {/* Sync Button and Status */}
+        <TouchableOpacity
+          onPress={handleSync}
+          disabled={!isOnline || isSyncing}
+          style={{ backgroundColor: (!isOnline || isSyncing) ? '#e5e7eb' : '#2563eb', borderRadius: 999, padding: 10, marginLeft: 8, marginRight: 4 }}
+        >
+          <MaterialIcons name="sync" size={20} color={(!isOnline || isSyncing) ? '#94a3b8' : '#fff'} />
       </TouchableOpacity>
+        <Text style={{ fontSize: 12, color: '#64748b', minWidth: 90 }}>
+          {isSyncing ? 'Syncing...' :
+            (!hasPending && isOnline && lastSync && (Date.now() - lastSync.getTime() < 60000)) ? 'Up to date.' :
+            lastSync ? `Last synced: ${lastSync.toLocaleString()}` : 'Not synced yet.'}
+        </Text>
+      </View>
 
       {/* Customer list */}
       <ScrollView className="flex-1 mb-4">

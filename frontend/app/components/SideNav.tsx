@@ -34,6 +34,7 @@ export default function SideNav({ isOpen, onClose, onLogout, onNavigate, activeP
     { title: 'Products', icon: 'inventory', page: 'products' },
     { title: 'Sales', icon: 'attach-money', page: 'sales' },
     { title: 'Expenses', icon: 'receipt', page: 'expenses' },
+    { title: 'Purchase', icon: 'shopping-cart', page: 'purchase' },
     { title: 'Reports', icon: 'bar-chart', page: 'reports' },
     { title: 'Settings', icon: 'settings', page: 'settings' },
   ];

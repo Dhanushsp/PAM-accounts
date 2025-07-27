@@ -40,10 +40,10 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded, edit
         alert(res.data.message || 'Customer updated!');
       } else {
         // Add mode: POST request
-        const res = await axios.post(`${BACKEND_URL}/api/customers`, form, {
-          headers: { 'Content-Type': 'application/json', Authorization: token }
-        });
-        alert(res.data.message || 'Customer added!');
+      const res = await axios.post(`${BACKEND_URL}/api/customers`, form, {
+        headers: { 'Content-Type': 'application/json', Authorization: token }
+      });
+      alert(res.data.message || 'Customer added!');
       }
       onCustomerAdded();
       onClose();

@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import ExpenseStats from '../components/ExpenseStats';
+import * as XLSX from 'xlsx';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 interface Expense {
   _id: string;
@@ -25,6 +28,8 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [categories, setCategories] = useState<string[]>([]);
   const [currentView, setCurrentView] = useState<'expenses' | 'stats'>('expenses');
+  const [filterType, setFilterType] = useState<'daily' | 'monthly' | 'yearly'>('daily');
+  const [showFilterModal, setShowFilterModal] = useState(false);
   const insets = useSafeAreaInsets();
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
@@ -57,23 +62,47 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
     ? expenses 
     : expenses.filter(expense => expense.category === selectedCategory);
 
-  // Group expenses by date
-  const groupedExpenses = filteredExpenses.reduce((groups: { [key: string]: Expense[] }, expense) => {
-    const date = new Date(expense.date).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(expense);
-    return groups;
-  }, {});
+  // Grouping logic
+  let groupedExpenses: { [key: string]: Expense[] } | { [key: string]: { total: number, items: Expense[] } } = {};
+  let sortedKeys: string[] = [];
 
-  const sortedDates = Object.keys(groupedExpenses).sort((a, b) => 
-    new Date(b).getTime() - new Date(a).getTime()
-  );
+  if (filterType === 'daily') {
+    groupedExpenses = filteredExpenses.reduce((groups: { [key: string]: Expense[] }, expense) => {
+      const date = new Date(expense.date).toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      if (!groups[date]) groups[date] = [];
+      groups[date].push(expense);
+      return groups;
+    }, {});
+    sortedKeys = Object.keys(groupedExpenses).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  } else if (filterType === 'monthly') {
+    groupedExpenses = filteredExpenses.reduce((groups: { [key: string]: { total: number, items: Expense[] } }, expense) => {
+      const date = new Date(expense.date);
+      const key = `${date.getFullYear()}-${date.getMonth() + 1}`;
+      if (!groups[key]) groups[key] = { total: 0, items: [] };
+      groups[key].total += expense.amount;
+      groups[key].items.push(expense);
+      return groups;
+    }, {});
+    sortedKeys = Object.keys(groupedExpenses).sort((a, b) => {
+      const [ay, am] = a.split('-').map(Number);
+      const [by, bm] = b.split('-').map(Number);
+      return by !== ay ? by - ay : bm - am;
+    });
+  } else if (filterType === 'yearly') {
+    groupedExpenses = filteredExpenses.reduce((groups: { [key: string]: { total: number, items: Expense[] } }, expense) => {
+      const date = new Date(expense.date);
+      const key = `${date.getFullYear()}`;
+      if (!groups[key]) groups[key] = { total: 0, items: [] };
+      groups[key].total += expense.amount;
+      groups[key].items.push(expense);
+      return groups;
+    }, {});
+    sortedKeys = Object.keys(groupedExpenses).sort((a, b) => Number(b) - Number(a));
+  }
 
   const renderDateGroup = ({ item: date }: { item: string }) => (
     <View style={styles.dateGroup}>
@@ -95,29 +124,73 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
     </View>
   );
 
+  const handleDownloadExpenses = async () => {
+    if (!expenses.length) return;
+    const data = expenses.map(e => ({
+      Date: new Date(e.date).toLocaleDateString(),
+      Category: e.category,
+      Subcategory: e.subcategory,
+      Amount: e.amount,
+      Description: e.description || '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
+    const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+    const uri = FileSystem.cacheDirectory + 'expenses.xlsx';
+    await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
+    await Sharing.shareAsync(uri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Download Expenses' });
+  };
+
   if (currentView === 'stats') {
     return <ExpenseStats expenses={expenses} onBack={() => setCurrentView('expenses')} />;
   }
+
+  const filterOptions = [
+    { label: 'Daily', value: 'daily' },
+    { label: 'Monthly', value: 'monthly' },
+    { label: 'Yearly', value: 'yearly' },
+  ];
 
   return (
     <SafeAreaView className="flex-1 bg-blue-50">
       <View className="flex-1 p-4">
         {/* Modernized Header */}
-        <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
-          <TouchableOpacity
-            onPress={onBack}
-            className="bg-gray-100 rounded-full p-2"
-            style={{ elevation: 2 }}
-          >
-            <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color="#2563eb" />
           </TouchableOpacity>
-          <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
-            Expenses
-          </Text>
-          <View style={{ width: 40 }} />
+          <Text style={styles.title}>Expenses</Text>
+          {/* Filter Dropdown */}
+          <TouchableOpacity onPress={() => setShowFilterModal(true)} style={styles.filterDropdown}>
+            <Text style={styles.filterDropdownText}>{filterType.charAt(0).toUpperCase() + filterType.slice(1)}</Text>
+            <MaterialIcons name="arrow-drop-down" size={20} color="#2563eb" style={styles.filterDropdownIcon} />
+          </TouchableOpacity>
+          <View style={{ width: 8 }} />
         </View>
+        <Modal visible={showFilterModal} transparent animationType="fade">
+          <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowFilterModal(false)}>
+            <View style={styles.filterModal}>
+              {filterOptions.map(opt => (
+                <TouchableOpacity key={opt.value} onPress={() => { setFilterType(opt.value as any); setShowFilterModal(false); }} style={styles.filterOption}>
+                  <Text style={[styles.filterOptionText, filterType === opt.value && styles.filterOptionTextActive]}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         {/* Category Filter */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8, marginBottom: 8 }}>
+          <TouchableOpacity
+            onPress={handleDownloadExpenses}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f59e42', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.10, shadowRadius: 4, elevation: 2 }}
+          >
+            <MaterialIcons name="download" size={20} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Download Expenses</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.filterContainer}>
           <Text style={styles.filterLabel}>Filter by Category:</Text>
           <FlatList
@@ -155,14 +228,37 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
             <Text className="text-gray-500 text-lg">No expenses found</Text>
           </View>
         ) : (
-          <FlatList
-            data={sortedDates}
-            keyExtractor={(item) => item}
-            renderItem={renderDateGroup}
-            ListEmptyComponent={<Text style={styles.emptyText}>No expenses found.</Text>}
-            contentContainerStyle={styles.expenseList}
-            showsVerticalScrollIndicator={false}
-          />
+          filterType === 'daily' ? (
+            <FlatList
+              data={sortedKeys}
+              keyExtractor={(item) => item}
+              renderItem={renderDateGroup}
+              ListEmptyComponent={<Text style={styles.emptyText}>No expenses found.</Text>}
+              contentContainerStyle={styles.expenseList}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <FlatList
+              data={sortedKeys}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <View style={styles.summaryGroup}>
+                  <View style={styles.summaryHeader}>
+                    <Text style={styles.summaryPeriod}>
+                      {filterType === 'monthly' 
+                        ? `${new Date(parseInt(item.split('-')[0]), parseInt(item.split('-')[1]) - 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}`
+                        : `${item}`
+                      }
+                    </Text>
+                    <Text style={styles.summaryTotal}>₹{(groupedExpenses as any)[item].total.toLocaleString()}</Text>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={<Text style={styles.emptyText}>No expenses found.</Text>}
+              contentContainerStyle={styles.expenseList}
+              showsVerticalScrollIndicator={false}
+            />
+          )
         )}
       </View>
 
@@ -333,5 +429,107 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#2563eb',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  backButton: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    padding: 8,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2563eb',
+    flex: 1,
+    textAlign: 'center',
+  },
+  filterDropdown: {
+    backgroundColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  filterDropdownText: {
+    color: '#2563eb',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  filterDropdownIcon: {
+    marginLeft: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  filterModal: {
+    position: 'absolute',
+    top: 80,
+    right: 16,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 100,
+  },
+  filterOption: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  filterOptionText: {
+    color: '#374151',
+    fontSize: 14,
+  },
+  filterOptionTextActive: {
+    color: '#2563eb',
+    fontWeight: 'bold',
+  },
+  summaryGroup: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2563eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryPeriod: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  summaryTotal: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#dc2626',
   },
 }); 

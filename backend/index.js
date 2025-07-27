@@ -30,6 +30,8 @@ app.use("/api/addproducts", addproductsRoutes);
 app.use("/api/products", addproductsRoutes)
 app.use("/api/sales", salesRoutes);
 app.use("/api/expenses", expensesRoutes);
+app.use("/api/vendors", require('./routes/vendors'));
+app.use("/api/purchases", require('./routes/purchases'));
 
 app.get('/', (req, res) => {
   res.send('API is working');
