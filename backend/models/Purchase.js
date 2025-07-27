@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const PurchaseSchema = new mongoose.Schema({
   item: {
@@ -58,4 +58,5 @@ const PurchaseSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('Purchase', PurchaseSchema); 
+export default mongoose.model('Purchase', PurchaseSchema);
+
