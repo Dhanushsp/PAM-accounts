@@ -1,8 +1,9 @@
-const express = require('express');
+import express from 'express';
+import Purchase from '../models/Purchase.js';
+import Vendor from '../models/Vendor.js';
+import auth from '../middleware/auth.js';
+
 const router = express.Router();
-const Purchase = require('../models/Purchase');
-const Vendor = require('../models/Vendor');
-const auth = require('../middleware/auth');
 
 // Get all purchases
 router.get('/', auth, async (req, res) => {
