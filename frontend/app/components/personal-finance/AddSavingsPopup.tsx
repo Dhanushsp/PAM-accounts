@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import KeyboardAwarePopup from '../KeyboardAwarePopup';
 
 interface SavingsType {
   _id: string;
@@ -12,19 +13,17 @@ interface SavingsType {
 interface AddSavingsPopupProps {
   token: string;
   onClose: () => void;
+  onSavingsAdded: () => void;
 }
 
-export default function AddSavingsPopup({ token, onClose }: AddSavingsPopupProps) {
+export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddSavingsPopupProps) {
   const [savingsTypes, setSavingsTypes] = useState<SavingsType[]>([]);
-  const [form, setForm] = useState({
-    typeId: '',
-    date: new Date().toISOString().split('T')[0],
-    amount: '',
-    newTypeName: ''
-  });
-  const [showNewTypeInput, setShowNewTypeInput] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [selectedType, setSelectedType] = useState<SavingsType | null>(null);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [loading, setLoading] = useState(false);
+  const [showNewTypeInput, setShowNewTypeInput] = useState(false);
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
@@ -40,86 +39,72 @@ export default function AddSavingsPopup({ token, onClose }: AddSavingsPopupProps
       setSavingsTypes(response.data);
     } catch (error) {
       console.error('Error fetching savings types:', error);
+      Alert.alert('Error', 'Failed to fetch savings types');
     }
   };
 
-  const handleTypeSelect = (type: SavingsType) => {
-    setSelectedType(type);
-    setForm(prev => ({ ...prev, typeId: type._id }));
-    setShowNewTypeInput(false);
-  };
-
-  const handleAddNewType = () => {
-    if (!form.newTypeName.trim()) {
+  const handleAddNewType = async () => {
+    if (!newTypeName.trim()) {
       Alert.alert('Error', 'Please enter a type name');
       return;
     }
 
-    setShowNewTypeInput(false);
-    // The new type will be created when the form is submitted
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/savings-types`, {
+        name: newTypeName.trim()
+      }, {
+        headers: { Authorization: token }
+      });
+
+      const newType = response.data;
+      setSavingsTypes(prev => [...prev, newType]);
+      setSelectedType(newType);
+      setNewTypeName('');
+      setShowNewTypeInput(false);
+    } catch (error: any) {
+      console.error('Error adding savings type:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to add savings type');
+    }
   };
 
   const handleSubmit = async () => {
-    if (!form.typeId && !form.newTypeName.trim()) {
-      Alert.alert('Error', 'Please select a savings type or create a new one');
+    if (!selectedType) {
+      Alert.alert('Error', 'Please select a savings type');
       return;
     }
-
-    if (!form.amount || parseFloat(form.amount) <= 0) {
+    if (!amount || parseFloat(amount) <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
 
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      let typeId = form.typeId;
-      
-      // If creating a new type
-      if (!typeId && form.newTypeName.trim()) {
-        const newTypeResponse = await axios.post(`${BACKEND_URL}/api/savings-types`, {
-          name: form.newTypeName.trim()
-        }, {
-          headers: { 
-            'Content-Type': 'application/json',
-            Authorization: token 
-          }
-        });
-        typeId = newTypeResponse.data._id;
-      }
-
-      // Add savings entry
       await axios.post(`${BACKEND_URL}/api/savings-entries`, {
-        typeId,
-        date: form.date,
-        amount: parseFloat(form.amount)
+        typeId: selectedType._id,
+        amount: parseFloat(amount),
+        date: new Date(date)
       }, {
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: token 
-        }
+        headers: { Authorization: token }
       });
-      
-      Alert.alert('Success', 'Savings added successfully');
+
+      Alert.alert('Success', 'Savings entry added successfully!');
+      onSavingsAdded();
       onClose();
-    } catch (error) {
-      console.error('Error adding savings:', error);
-      Alert.alert('Error', 'Failed to add savings');
+    } catch (error: any) {
+      console.error('Error adding savings entry:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to add savings entry');
     } finally {
       setLoading(false);
     }
   };
 
   const getCurrentTotal = () => {
-    if (selectedType) {
-      return selectedType.totalAmount;
-    }
-    return 0;
+    return selectedType ? selectedType.totalAmount : 0;
   };
 
   const getNewTotal = () => {
     const currentTotal = getCurrentTotal();
-    const newAmount = parseFloat(form.amount) || 0;
+    const newAmount = parseFloat(amount) || 0;
     return currentTotal + newAmount;
   };
 
@@ -128,119 +113,143 @@ export default function AddSavingsPopup({ token, onClose }: AddSavingsPopupProps
       <View style={styles.modalContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Add Savings</Text>
-          <Pressable
-            onPress={onClose}
-            style={styles.closeButton}
-          >
-            <MaterialIcons name="close" size={18} color="#64748b" />
-          </Pressable>
+          <Text style={styles.title}>Add Savings</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <MaterialIcons name="close" size={24} color="#64748b" />
+          </TouchableOpacity>
         </View>
 
-        {/* Form */}
-        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-          <View style={styles.formContent}>
-            {/* Savings Type Selection */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Savings Type *</Text>
-              
-              {!showNewTypeInput ? (
-                <View>
-                  {/* Existing Types */}
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typesScrollView}>
-                    {savingsTypes.map((type) => (
-                      <TouchableOpacity
-                        key={type._id}
-                        onPress={() => handleTypeSelect(type)}
-                        style={[styles.typeButton, form.typeId === type._id && styles.selectedTypeButton]}
-                      >
-                        <Text style={[styles.typeButtonText, form.typeId === type._id && styles.selectedTypeButtonText]}>
-                          {type.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                  
-                  {/* Add New Type Button */}
+        <KeyboardAwarePopup
+          style={styles.keyboardAwareContainer}
+          contentContainerStyle={styles.contentContainer}
+          extraScrollHeight={100}
+        >
+          {/* Savings Type Selection */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Savings Type</Text>
+            
+            {!showNewTypeInput ? (
+              <View style={styles.typeSelectionContainer}>
+                <View style={styles.dropdownContainer}>
                   <TouchableOpacity
-                    onPress={() => setShowNewTypeInput(true)}
-                    style={styles.addTypeButton}
+                    style={styles.dropdown}
+                    onPress={() => {
+                      if (savingsTypes.length === 0) {
+                        setShowNewTypeInput(true);
+                      }
+                    }}
                   >
-                    <MaterialIcons name="add" size={18} color="#2563eb" />
-                    <Text style={styles.addTypeButtonText}>Add New Type</Text>
+                    <Text style={styles.dropdownText}>
+                      {selectedType ? selectedType.name : 'Select Type'}
+                    </Text>
+                    <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
                   </TouchableOpacity>
                 </View>
-              ) : (
-                <View style={styles.newTypeContainer}>
-                  <TextInput
-                    placeholder="Enter new type name"
-                    value={form.newTypeName}
-                    onChangeText={(text) => setForm(prev => ({ ...prev, newTypeName: text }))}
-                    style={styles.textInput}
-                  />
+                
+                <TouchableOpacity
+                  onPress={() => setShowNewTypeInput(true)}
+                  style={styles.addTypeButton}
+                >
+                  <MaterialIcons name="add" size={20} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.newTypeContainer}>
+                <TextInput
+                  placeholder="Enter new type name"
+                  value={newTypeName}
+                  onChangeText={setNewTypeName}
+                  style={styles.textInput}
+                  placeholderTextColor="#888"
+                />
+                <View style={styles.newTypeButtons}>
                   <TouchableOpacity
                     onPress={handleAddNewType}
-                    style={styles.confirmTypeButton}
+                    style={styles.saveTypeButton}
                   >
-                    <MaterialIcons name="check" size={18} color="#ffffff" />
+                    <Text style={styles.saveTypeButtonText}>Save</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowNewTypeInput(false);
+                      setNewTypeName('');
+                    }}
+                    style={styles.cancelTypeButton}
+                  >
+                    <Text style={styles.cancelTypeButtonText}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
-              )}
-            </View>
-
-            {/* Date */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Date</Text>
-              <TextInput
-                placeholder="YYYY-MM-DD"
-                value={form.date}
-                onChangeText={(text) => setForm(prev => ({ ...prev, date: text }))}
-                style={styles.textInput}
-              />
-            </View>
-
-            {/* Current Total */}
-            {selectedType && (
-              <View style={styles.totalContainer}>
-                <Text style={styles.totalLabel}>Current Total in {selectedType.name}</Text>
-                <Text style={styles.totalAmount}>₹{getCurrentTotal().toLocaleString()}</Text>
               </View>
             )}
 
-            {/* Amount */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Amount to Add *</Text>
-              <TextInput
-                placeholder="Enter amount"
-                value={form.amount}
-                onChangeText={(text) => setForm(prev => ({ ...prev, amount: text }))}
-                keyboardType="numeric"
-                style={styles.textInput}
-              />
-            </View>
-
-            {/* New Total */}
-            {selectedType && form.amount && (
-              <View style={styles.newTotalContainer}>
-                <Text style={styles.newTotalLabel}>New Total in {selectedType.name}</Text>
-                <Text style={styles.newTotalAmount}>₹{getNewTotal().toLocaleString()}</Text>
+            {/* Type List */}
+            {savingsTypes.length > 0 && !showNewTypeInput && (
+              <View style={styles.typeList}>
+                {savingsTypes.map((type) => (
+                  <TouchableOpacity
+                    key={type._id}
+                    onPress={() => setSelectedType(type)}
+                    style={[styles.typeItem, selectedType?._id === type._id && styles.selectedTypeItem]}
+                  >
+                    <Text style={[styles.typeItemText, selectedType?._id === type._id && styles.selectedTypeItemText]}>
+                      {type.name}
+                    </Text>
+                    <Text style={[styles.typeItemAmount, selectedType?._id === type._id && styles.selectedTypeItemAmount]}>
+                      ₹{type.totalAmount.toFixed(2)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
           </View>
-        </ScrollView>
 
-        {/* Footer */}
-        <View style={styles.footer}>
+          {/* Amount and Date */}
+          {selectedType && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Details</Text>
+              
+              <TextInput
+                placeholder="Date (YYYY-MM-DD)"
+                value={date}
+                onChangeText={setDate}
+                style={styles.textInput}
+                placeholderTextColor="#888"
+              />
+
+              <TextInput
+                placeholder="Amount"
+                value={amount}
+                onChangeText={setAmount}
+                style={styles.textInput}
+                keyboardType="numeric"
+                placeholderTextColor="#888"
+              />
+
+              {/* Current Total */}
+              <View style={styles.totalContainer}>
+                <Text style={styles.totalLabel}>Current Total:</Text>
+                <Text style={styles.totalValue}>₹{getCurrentTotal().toFixed(2)}</Text>
+              </View>
+
+              {/* New Total */}
+              <View style={styles.totalContainer}>
+                <Text style={styles.totalLabel}>New Total:</Text>
+                <Text style={styles.totalValue}>₹{getNewTotal().toFixed(2)}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Submit Button */}
           <TouchableOpacity
             onPress={handleSubmit}
-            disabled={loading}
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+            disabled={loading || !selectedType || !amount}
+            style={[styles.submitButton, (loading || !selectedType || !amount) && styles.submitButtonDisabled]}
           >
             <Text style={styles.submitButtonText}>
               {loading ? 'Adding...' : 'Add Savings'}
             </Text>
           </TouchableOpacity>
-        </View>
+        </KeyboardAwarePopup>
       </View>
     </View>
   );
@@ -259,155 +268,194 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   modalContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: '90%',
     maxWidth: 400,
     maxHeight: '90%',
     minHeight: 500,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  headerTitle: {
+  title: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1f2937',
   },
   closeButton: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-    padding: 8,
+    padding: 5,
   },
-  formContainer: {
+  keyboardAwareContainer: {
     flex: 1,
-    padding: 16,
   },
-  formContent: {
-    gap: 16,
+  contentContainer: {
+    padding: 20,
   },
-  inputContainer: {
-    marginBottom: 16,
+  section: {
+    marginBottom: 20,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#374151',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  typesScrollView: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  typeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f3f4f6',
-    marginRight: 8,
-  },
-  selectedTypeButton: {
-    backgroundColor: '#2563eb',
-  },
-  typeButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  selectedTypeButtonText: {
-    color: '#ffffff',
-  },
-  addTypeButton: {
+  typeSelectionContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#dbeafe',
+    gap: 10,
+    marginBottom: 15,
   },
-  addTypeButtonText: {
-    color: '#2563eb',
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  newTypeContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  textInput: {
+  dropdownContainer: {
     flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
+  },
+  dropdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#d1d5db',
-    backgroundColor: '#f9fafb',
-    color: '#1f2937',
-    fontSize: 16,
-  },
-  confirmTypeButton: {
-    backgroundColor: '#2563eb',
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    backgroundColor: '#fff',
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#1f2937',
+    flex: 1,
+  },
+  addTypeButton: {
+    backgroundColor: '#2563eb',
     borderRadius: 8,
+    padding: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  totalContainer: {
-    backgroundColor: '#f0fdf4',
+  newTypeContainer: {
+    marginBottom: 15,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
     borderRadius: 8,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#1f2937',
+    backgroundColor: '#fff',
+    marginBottom: 12,
+  },
+  newTypeButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  saveTypeButton: {
+    flex: 1,
+    backgroundColor: '#2563eb',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveTypeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelTypeButton: {
+    flex: 1,
+    backgroundColor: '#6b7280',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelTypeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  typeList: {
+    gap: 8,
+  },
+  typeItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  selectedTypeItem: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#2563eb',
+  },
+  typeItemText: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+  },
+  selectedTypeItemText: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  typeItemAmount: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  selectedTypeItemAmount: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  totalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginBottom: 12,
   },
   totalLabel: {
     fontSize: 14,
-    color: '#166534',
+    fontWeight: '500',
+    color: '#374151',
   },
-  totalAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#166534',
-  },
-  newTotalContainer: {
-    backgroundColor: '#dbeafe',
-    borderRadius: 8,
-    padding: 12,
-  },
-  newTotalLabel: {
-    fontSize: 14,
-    color: '#1e40af',
-  },
-  newTotalAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1e40af',
-  },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+  totalValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2563eb',
   },
   submitButton: {
-    width: '100%',
+    backgroundColor: '#2563eb',
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#059669',
-    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 10,
   },
   submitButtonDisabled: {
     backgroundColor: '#9ca3af',
   },
   submitButtonText: {
-    color: '#ffffff',
-    textAlign: 'center',
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
-    fontSize: 18,
   },
 }); 

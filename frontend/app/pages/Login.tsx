@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SafeAreaView, TextInput, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import axios from 'axios';
+import KeyboardAwareView from '../components/KeyboardAwareView';
 
 interface LoginProps {
   setToken: (token: string) => void;
@@ -36,39 +37,45 @@ export default function Login({ setToken }: LoginProps) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.loginBox}>
-          <Text style={styles.title}>Login</Text>
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={styles.input}
-              placeholder="Mobile"
-              value={mobile}
-              onChangeText={setMobile}
-              keyboardType="number-pad"
-              placeholderTextColor="#888"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              placeholderTextColor="#888"
-            />
-            <TouchableOpacity
-              onPress={handleLogin}
-              disabled={isLoading}
-              style={styles.loginButton}
-            >
-              <Text style={styles.loginButtonText}>
-                {isLoading ? 'Logging in...' : 'Login'}
-              </Text>
-            </TouchableOpacity>
+      <KeyboardAwareView
+        style={styles.keyboardAwareContainer}
+        contentContainerStyle={styles.contentContainer}
+        extraScrollHeight={100}
+      >
+        <View style={styles.container}>
+          <View style={styles.loginBox}>
+            <Text style={styles.title}>Login</Text>
+            <View style={styles.inputGroup}>
+              <TextInput
+                style={styles.input}
+                placeholder="Mobile"
+                value={mobile}
+                onChangeText={setMobile}
+                keyboardType="number-pad"
+                placeholderTextColor="#888"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholderTextColor="#888"
+              />
+              <TouchableOpacity
+                onPress={handleLogin}
+                disabled={isLoading}
+                style={styles.loginButton}
+              >
+                <Text style={styles.loginButtonText}>
+                  {isLoading ? 'Logging in...' : 'Login'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
-      </View>
+      </KeyboardAwareView>
     </SafeAreaView>
   );
 }
@@ -78,11 +85,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  keyboardAwareContainer: {
+    flex: 1,
+  },
+  contentContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '100%',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
+    width: '100%',
   },
   loginBox: {
     backgroundColor: '#fff',

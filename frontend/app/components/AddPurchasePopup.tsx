@@ -3,11 +3,11 @@ import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import KeyboardAwarePopup from './KeyboardAwarePopup';
 
 interface Vendor {
   _id: string;
   name: string;
-  contact: string;
   credit: number;
   items: string[];
 }
@@ -19,21 +19,18 @@ interface AddPurchasePopupProps {
 
 export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupProps) {
   const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [form, setForm] = useState({
-    item: '',
-    vendor: '',
-    quantity: '',
-    unit: 'packs' as 'packs' | 'kgs',
-    pricePerUnit: '',
-    amountPaid: ''
-  });
-  const [loading, setLoading] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [selectedItem, setSelectedItem] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [unit, setUnit] = useState<'packs' | 'kgs'>('packs');
+  const [pricePerUnit, setPricePerUnit] = useState('');
+  const [amountPaid, setAmountPaid] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const insets = useSafeAreaInsets();
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
-  // Fetch vendors on component mount
   useEffect(() => {
     fetchVendors();
   }, []);
@@ -46,92 +43,81 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
       setVendors(response.data);
     } catch (error) {
       console.error('Error fetching vendors:', error);
-      Alert.alert('Error', 'Failed to fetch vendors. Please check your connection and try again.');
+      setError('No vendors found. Please add vendors first.');
     }
   };
 
-  // Calculate totals
-  const totalPurchasePrice = parseFloat(form.quantity) * parseFloat(form.pricePerUnit) || 0;
-  const totalAmountToBePaid = (selectedVendor?.credit || 0) + totalPurchasePrice;
-  const updatedCredit = totalAmountToBePaid - (parseFloat(form.amountPaid) || 0);
+  const getTotalPrice = () => {
+    const qty = parseFloat(quantity) || 0;
+    const price = parseFloat(pricePerUnit) || 0;
+    return qty * price;
+  };
 
-  const handleVendorSelect = (vendor: Vendor) => {
-    setSelectedVendor(vendor);
-    setForm(prev => ({ ...prev, vendor: vendor._id }));
+  const getTotalAmountToBePaid = () => {
+    const totalPrice = getTotalPrice();
+    const vendorCredit = selectedVendor ? selectedVendor.credit : 0;
+    return totalPrice + vendorCredit;
+  };
+
+  const getUpdatedCredit = () => {
+    const totalAmount = getTotalAmountToBePaid();
+    const paid = parseFloat(amountPaid) || 0;
+    return totalAmount - paid;
+  };
+
+  const getAvailableItems = () => {
+    if (!selectedVendor) return [];
+    return selectedVendor.items;
   };
 
   const handleSubmit = async () => {
-    if (!form.item.trim()) {
-      Alert.alert('Error', 'Please select an item');
-      return;
-    }
-
-    if (!form.vendor) {
+    if (!selectedVendor) {
       Alert.alert('Error', 'Please select a vendor');
       return;
     }
-
-    if (!form.quantity || parseFloat(form.quantity) <= 0) {
-      Alert.alert('Error', 'Please enter a valid quantity');
+    if (!selectedItem) {
+      Alert.alert('Error', 'Please select an item');
+      return;
+    }
+    if (!quantity || !pricePerUnit) {
+      Alert.alert('Error', 'Please fill in quantity and price');
       return;
     }
 
-    if (!form.pricePerUnit || parseFloat(form.pricePerUnit) <= 0) {
-      Alert.alert('Error', 'Please enter a valid price per unit');
-      return;
-    }
-
-    if (!form.amountPaid || parseFloat(form.amountPaid) < 0) {
-      Alert.alert('Error', 'Please enter a valid amount paid');
-      return;
-    }
-
+    setLoading(true);
     try {
-      setLoading(true);
-      await axios.post(`${BACKEND_URL}/api/purchases`, {
-        item: form.item,
-        vendor: form.vendor,
-        vendorName: selectedVendor?.name,
-        quantity: parseFloat(form.quantity),
-        unit: form.unit,
-        pricePerUnit: parseFloat(form.pricePerUnit),
-        totalPrice: totalPurchasePrice,
-        amountPaid: parseFloat(form.amountPaid),
-        updatedCredit: updatedCredit,
-        date: new Date().toISOString()
-      }, {
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: token 
-        }
+      const purchaseData = {
+        item: selectedItem,
+        vendor: selectedVendor._id,
+        vendorName: selectedVendor.name,
+        quantity: parseFloat(quantity),
+        unit,
+        pricePerUnit: parseFloat(pricePerUnit),
+        totalPrice: getTotalPrice(),
+        amountPaid: parseFloat(amountPaid) || 0,
+        updatedCredit: getUpdatedCredit(),
+        date: new Date()
+      };
+
+      await axios.post(`${BACKEND_URL}/api/purchases`, purchaseData, {
+        headers: { Authorization: token }
       });
 
       // Update vendor credit
-      await axios.put(`${BACKEND_URL}/api/vendors/${form.vendor}`, {
-        credit: updatedCredit
+      await axios.put(`${BACKEND_URL}/api/vendors/${selectedVendor._id}`, {
+        credit: getUpdatedCredit()
       }, {
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: token 
-        }
+        headers: { Authorization: token }
       });
-      
-      Alert.alert('Success', 'Purchase added successfully');
+
+      Alert.alert('Success', 'Purchase added successfully!');
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding purchase:', error);
-      Alert.alert('Error', 'Failed to add purchase');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to add purchase');
     } finally {
       setLoading(false);
     }
-  };
-
-  const getUniqueItems = () => {
-    const items = new Set<string>();
-    vendors.forEach(vendor => {
-      vendor.items.forEach(item => items.add(item));
-    });
-    return Array.from(items);
   };
 
   return (
@@ -139,170 +125,163 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
       <View style={styles.modalContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Add Purchase</Text>
-          <Pressable
-            onPress={onClose}
-            style={styles.closeButton}
-          >
-            <MaterialIcons name="close" size={18} color="#64748b" />
-          </Pressable>
-        </View>
-
-        {/* Form */}
-        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-          <View style={styles.formContent}>
-            {/* Item Selection */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Select Item *</Text>
-              {getUniqueItems().length === 0 ? (
-                <View style={styles.warningContainer}>
-                  <Text style={styles.warningText}>
-                    No items found. Please add items to vendors first.
-                  </Text>
-                </View>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.itemsScrollView}>
-                  {getUniqueItems().map((item) => (
-                    <TouchableOpacity
-                      key={item}
-                      onPress={() => setForm(prev => ({ ...prev, item }))}
-                      style={[styles.itemButton, form.item === item && styles.selectedItemButton]}
-                    >
-                      <Text style={[styles.itemButtonText, form.item === item && styles.selectedItemButtonText]}>
-                        {item}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-
-            {/* Vendor Selection */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Select Vendor *</Text>
-              {vendors.length === 0 ? (
-                <View style={styles.warningContainer}>
-                  <Text style={styles.warningText}>
-                    No vendors found. Please add vendors first.
-                  </Text>
-                </View>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.itemsScrollView}>
-                  {vendors.map((vendor) => (
-                    <TouchableOpacity
-                      key={vendor._id}
-                      onPress={() => handleVendorSelect(vendor)}
-                      style={[styles.itemButton, form.vendor === vendor._id && styles.selectedItemButton]}
-                    >
-                      <Text style={[styles.itemButtonText, form.vendor === vendor._id && styles.selectedItemButtonText]}>
-                        {vendor.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-
-            {/* Vendor Credit Display */}
-            {selectedVendor && (
-              <View style={styles.creditContainer}>
-                <Text style={styles.creditText}>
-                  Vendor Credit: ₹{selectedVendor.credit}
-                </Text>
-              </View>
-            )}
-
-            {/* Quantity and Unit */}
-            <View style={styles.rowContainer}>
-              <View style={styles.halfContainer}>
-                <Text style={styles.label}>Quantity *</Text>
-                <TextInput
-                  placeholder="Enter quantity"
-                  value={form.quantity}
-                  onChangeText={(text) => setForm(prev => ({ ...prev, quantity: text }))}
-                  keyboardType="numeric"
-                  style={styles.textInput}
-                />
-              </View>
-              <View style={styles.halfContainer}>
-                <Text style={styles.label}>Unit</Text>
-                <View style={styles.unitContainer}>
-                  <TouchableOpacity
-                    onPress={() => setForm(prev => ({ ...prev, unit: 'packs' }))}
-                    style={[styles.unitButton, form.unit === 'packs' && styles.selectedUnitButton]}
-                  >
-                    <Text style={[styles.unitButtonText, form.unit === 'packs' && styles.selectedUnitButtonText]}>
-                      Packs
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setForm(prev => ({ ...prev, unit: 'kgs' }))}
-                    style={[styles.unitButton, form.unit === 'kgs' && styles.selectedUnitButton]}
-                  >
-                    <Text style={[styles.unitButtonText, form.unit === 'kgs' && styles.selectedUnitButtonText]}>
-                      Kgs
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            {/* Price per Unit */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Price per {form.unit} *</Text>
-              <TextInput
-                placeholder={`Enter price per ${form.unit}`}
-                value={form.pricePerUnit}
-                onChangeText={(text) => setForm(prev => ({ ...prev, pricePerUnit: text }))}
-                keyboardType="numeric"
-                style={styles.textInput}
-              />
-            </View>
-
-            {/* Total Purchase Price */}
-            <View style={styles.totalContainer}>
-              <Text style={styles.totalLabel}>Total Purchase Price</Text>
-              <Text style={styles.totalValue}>₹{totalPurchasePrice.toFixed(2)}</Text>
-            </View>
-
-            {/* Total Amount to be Paid */}
-            <View style={styles.totalAmountContainer}>
-              <Text style={styles.totalAmountLabel}>Total Amount to be Paid</Text>
-              <Text style={styles.totalAmountValue}>₹{totalAmountToBePaid.toFixed(2)}</Text>
-            </View>
-
-            {/* Amount Paid */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Amount Paid *</Text>
-              <TextInput
-                placeholder="Enter amount paid"
-                value={form.amountPaid}
-                onChangeText={(text) => setForm(prev => ({ ...prev, amountPaid: text }))}
-                keyboardType="numeric"
-                style={styles.textInput}
-              />
-            </View>
-
-            {/* Updated Credit */}
-            <View style={styles.updatedCreditContainer}>
-              <Text style={styles.updatedCreditLabel}>Updated Credit</Text>
-              <Text style={styles.updatedCreditValue}>₹{updatedCredit.toFixed(2)}</Text>
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={loading}
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-          >
-            <Text style={styles.submitButtonText}>
-              {loading ? 'Adding...' : 'Purchase'}
-            </Text>
+          <Text style={styles.title}>Add Purchase</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <MaterialIcons name="close" size={24} color="#64748b" />
           </TouchableOpacity>
         </View>
+
+        <KeyboardAwarePopup
+          style={styles.keyboardAwareContainer}
+          contentContainerStyle={styles.contentContainer}
+          extraScrollHeight={100}
+        >
+          {/* Error Message */}
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          {/* Vendor Selection */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Select Vendor</Text>
+            <View style={styles.dropdownContainer}>
+              <TouchableOpacity
+                style={styles.dropdown}
+                onPress={() => {
+                  // Show vendor selection modal or dropdown
+                  if (vendors.length === 0) {
+                    Alert.alert('No Vendors', 'Please add vendors first');
+                  } else {
+                    // For now, just select the first vendor
+                    setSelectedVendor(vendors[0]);
+                  }
+                }}
+              >
+                <Text style={styles.dropdownText}>
+                  {selectedVendor ? selectedVendor.name : 'Select Vendor'}
+                </Text>
+                <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            
+            {selectedVendor && (
+              <Text style={styles.creditText}>
+                Current Credit: ₹{selectedVendor.credit.toFixed(2)}
+              </Text>
+            )}
+          </View>
+
+          {/* Item Selection */}
+          {selectedVendor && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Select Item</Text>
+              <View style={styles.dropdownContainer}>
+                <TouchableOpacity
+                  style={styles.dropdown}
+                  onPress={() => {
+                    const items = getAvailableItems();
+                    if (items.length === 0) {
+                      Alert.alert('No Items', 'This vendor has no items');
+                    } else {
+                      setSelectedItem(items[0]);
+                    }
+                  }}
+                >
+                  <Text style={styles.dropdownText}>
+                    {selectedItem || 'Select Item'}
+                  </Text>
+                  <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Purchase Details */}
+          {selectedItem && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Purchase Details</Text>
+              
+              {/* Unit Selection */}
+              <View style={styles.unitContainer}>
+                <Text style={styles.label}>Unit:</Text>
+                <View style={styles.unitButtons}>
+                  {(['packs', 'kgs'] as const).map((u) => (
+                    <TouchableOpacity
+                      key={u}
+                      style={[styles.unitButton, unit === u && styles.unitButtonActive]}
+                      onPress={() => setUnit(u)}
+                    >
+                      <Text style={[styles.unitButtonText, unit === u && styles.unitButtonTextActive]}>
+                        {u.toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Quantity */}
+              <TextInput
+                placeholder={`Quantity (${unit})`}
+                value={quantity}
+                onChangeText={setQuantity}
+                style={styles.textInput}
+                keyboardType="numeric"
+                placeholderTextColor="#888"
+              />
+
+              {/* Price per Unit */}
+              <TextInput
+                placeholder={`Price per ${unit.slice(0, -1)}`}
+                value={pricePerUnit}
+                onChangeText={setPricePerUnit}
+                style={styles.textInput}
+                keyboardType="numeric"
+                placeholderTextColor="#888"
+              />
+
+              {/* Total Price (Read-only) */}
+              <View style={styles.readOnlyContainer}>
+                <Text style={styles.label}>Total Purchase Price:</Text>
+                <Text style={styles.readOnlyValue}>₹{getTotalPrice().toFixed(2)}</Text>
+              </View>
+
+              {/* Total Amount to be Paid */}
+              <View style={styles.readOnlyContainer}>
+                <Text style={styles.label}>Total Amount to be Paid:</Text>
+                <Text style={styles.readOnlyValue}>₹{getTotalAmountToBePaid().toFixed(2)}</Text>
+              </View>
+
+              {/* Amount Paid */}
+              <TextInput
+                placeholder="Amount Paid"
+                value={amountPaid}
+                onChangeText={setAmountPaid}
+                style={styles.textInput}
+                keyboardType="numeric"
+                placeholderTextColor="#888"
+              />
+
+              {/* Updated Credit (Read-only) */}
+              <View style={styles.readOnlyContainer}>
+                <Text style={styles.label}>Updated Credit:</Text>
+                <Text style={styles.readOnlyValue}>₹{getUpdatedCredit().toFixed(2)}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={loading || !selectedVendor || !selectedItem}
+            style={[styles.submitButton, (loading || !selectedVendor || !selectedItem) && styles.submitButtonDisabled]}
+          >
+            <Text style={styles.submitButtonText}>
+              {loading ? 'Adding...' : 'Add Purchase'}
+            </Text>
+          </TouchableOpacity>
+        </KeyboardAwarePopup>
       </View>
     </View>
   );
@@ -321,41 +300,88 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   modalContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: '90%',
     maxWidth: 400,
     maxHeight: '90%',
     minHeight: 600,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  headerTitle: {
+  title: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1f2937',
   },
   closeButton: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-    padding: 8,
+    padding: 5,
   },
-  formContainer: {
+  keyboardAwareContainer: {
     flex: 1,
-    padding: 16,
   },
-  formContent: {
-    gap: 16,
+  contentContainer: {
+    padding: 20,
   },
-  inputContainer: {
+  errorContainer: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 16,
+  },
+  errorText: {
+    color: '#dc2626',
+    fontSize: 14,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 10,
+  },
+  dropdownContainer: {
+    marginBottom: 12,
+  },
+  dropdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#1f2937',
+    flex: 1,
+  },
+  creditText: {
+    fontSize: 14,
+    color: '#059669',
+    fontWeight: '500',
+  },
+  unitContainer: {
+    marginBottom: 12,
   },
   label: {
     fontSize: 14,
@@ -363,153 +389,74 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 8,
   },
-  warningContainer: {
-    backgroundColor: '#fef3c7',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#f59e0b',
-  },
-  warningText: {
-    fontSize: 14,
-    color: '#92400e',
-    textAlign: 'center',
-  },
-  itemsScrollView: {
-    flexDirection: 'row',
-  },
-  itemButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f3f4f6',
-    marginRight: 8,
-  },
-  selectedItemButton: {
-    backgroundColor: '#2563eb',
-  },
-  itemButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  selectedItemButtonText: {
-    color: '#ffffff',
-  },
-  creditContainer: {
-    backgroundColor: '#dbeafe',
-    borderRadius: 8,
-    padding: 12,
-  },
-  creditText: {
-    fontSize: 14,
-    color: '#1e40af',
-  },
-  rowContainer: {
+  unitButtons: {
     flexDirection: 'row',
     gap: 8,
-  },
-  halfContainer: {
-    flex: 1,
-  },
-  unitContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    padding: 4,
   },
   unitButton: {
     flex: 1,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: 'transparent',
-  },
-  selectedUnitButton: {
-    backgroundColor: '#ffffff',
-  },
-  unitButtonText: {
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4b5563',
-  },
-  selectedUnitButtonText: {
-    color: '#2563eb',
-  },
-  textInput: {
-    width: '100%',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#d1d5db',
     backgroundColor: '#f9fafb',
-    color: '#1f2937',
-    fontSize: 16,
+    alignItems: 'center',
   },
-  totalContainer: {
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    padding: 12,
+  unitButtonActive: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#2563eb',
   },
-  totalLabel: {
+  unitButtonText: {
     fontSize: 14,
     color: '#6b7280',
+    fontWeight: '500',
   },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  unitButtonTextActive: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
     color: '#1f2937',
+    backgroundColor: '#fff',
+    marginBottom: 12,
   },
-  totalAmountContainer: {
-    backgroundColor: '#dbeafe',
+  readOnlyContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 8,
-    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginBottom: 12,
   },
-  totalAmountLabel: {
-    fontSize: 14,
-    color: '#1e40af',
-  },
-  totalAmountValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1e40af',
-  },
-  updatedCreditContainer: {
-    backgroundColor: '#d1fae5',
-    borderRadius: 8,
-    padding: 12,
-  },
-  updatedCreditLabel: {
-    fontSize: 14,
-    color: '#065f46',
-  },
-  updatedCreditValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#065f46',
-  },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+  readOnlyValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2563eb',
   },
   submitButton: {
-    width: '100%',
+    backgroundColor: '#2563eb',
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#059669',
-    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 10,
   },
   submitButtonDisabled: {
     backgroundColor: '#9ca3af',
   },
   submitButtonText: {
-    color: '#ffffff',
-    textAlign: 'center',
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
-    fontSize: 18,
   },
 }); 

@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import KeyboardAwarePopup from './KeyboardAwarePopup';
 
 interface AddVendorPopupProps {
   token: string;
@@ -17,13 +18,35 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
     items: [] as string[]
   });
   const [newItem, setNewItem] = useState('');
+  const [allItems, setAllItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
+  useEffect(() => {
+    fetchAllItems();
+  }, []);
+
+  const fetchAllItems = async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/vendors`, {
+        headers: { Authorization: token }
+      });
+      
+      // Extract all unique items from all vendors
+      const items = new Set<string>();
+      response.data.forEach((vendor: any) => {
+        vendor.items.forEach((item: string) => items.add(item));
+      });
+      setAllItems(Array.from(items));
+    } catch (error) {
+      console.error('Error fetching items:', error);
+    }
+  };
+
   const handleAddItem = () => {
-    if (newItem.trim()) {
+    if (newItem.trim() && !form.items.includes(newItem.trim())) {
       setForm(prev => ({
         ...prev,
         items: [...prev.items, newItem.trim()]
@@ -39,41 +62,37 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
     }));
   };
 
+  const handleSelectExistingItem = (item: string) => {
+    if (!form.items.includes(item)) {
+      setForm(prev => ({
+        ...prev,
+        items: [...prev.items, item]
+      }));
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!form.name.trim()) {
-      Alert.alert('Error', 'Please enter vendor name');
+    if (!form.name.trim() || !form.contact.trim()) {
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
-    if (!form.contact.trim()) {
-      Alert.alert('Error', 'Please enter contact information');
-      return;
-    }
-
-    if (form.items.length === 0) {
-      Alert.alert('Error', 'Please add at least one item');
-      return;
-    }
-
+    setLoading(true);
     try {
-      setLoading(true);
-      await axios.post(`${BACKEND_URL}/api/vendors`, {
+      const response = await axios.post(`${BACKEND_URL}/api/vendors`, {
         name: form.name.trim(),
         contact: form.contact.trim(),
         credit: parseFloat(form.credit) || 0,
         items: form.items
       }, {
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: token 
-        }
+        headers: { Authorization: token }
       });
-      
-      Alert.alert('Success', 'Vendor added successfully');
+
+      Alert.alert('Success', 'Vendor added successfully!');
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding vendor:', error);
-      Alert.alert('Error', 'Failed to add vendor');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to add vendor');
     } finally {
       setLoading(false);
     }
@@ -84,94 +103,101 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
       <View style={styles.modalContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Add Vendor</Text>
-          <Pressable
-            onPress={onClose}
-            style={styles.closeButton}
-          >
-            <MaterialIcons name="close" size={18} color="#64748b" />
-          </Pressable>
+          <Text style={styles.title}>Add Vendor</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <MaterialIcons name="close" size={24} color="#64748b" />
+          </TouchableOpacity>
         </View>
 
-        {/* Form */}
-        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-          <View style={styles.formContent}>
-            {/* Name */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Vendor Name *</Text>
+        <KeyboardAwarePopup
+          style={styles.keyboardAwareContainer}
+          contentContainerStyle={styles.contentContainer}
+          extraScrollHeight={100}
+        >
+          {/* Basic Info */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Basic Information</Text>
+            <TextInput
+              placeholder="Vendor Name"
+              value={form.name}
+              onChangeText={(text) => setForm(prev => ({ ...prev, name: text }))}
+              style={styles.textInput}
+              placeholderTextColor="#888"
+            />
+            <TextInput
+              placeholder="Contact Number"
+              value={form.contact}
+              onChangeText={(text) => setForm(prev => ({ ...prev, contact: text }))}
+              style={styles.textInput}
+              keyboardType="phone-pad"
+              placeholderTextColor="#888"
+            />
+            <TextInput
+              placeholder="Credit Amount"
+              value={form.credit}
+              onChangeText={(text) => setForm(prev => ({ ...prev, credit: text }))}
+              style={styles.textInput}
+              keyboardType="numeric"
+              placeholderTextColor="#888"
+            />
+          </View>
+
+          {/* Items Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Items</Text>
+            
+            {/* Add New Item */}
+            <View style={styles.addItemContainer}>
               <TextInput
-                placeholder="Enter vendor name"
-                value={form.name}
-                onChangeText={(text) => setForm(prev => ({ ...prev, name: text }))}
-                style={styles.textInput}
+                placeholder="Add new item"
+                value={newItem}
+                onChangeText={setNewItem}
+                style={[styles.textInput, { flex: 1, marginBottom: 0, marginRight: 8 }]}
+                placeholderTextColor="#888"
               />
+              <TouchableOpacity onPress={handleAddItem} style={styles.addItemButton}>
+                <MaterialIcons name="add" size={20} color="#fff" />
+              </TouchableOpacity>
             </View>
 
-            {/* Contact */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Contact *</Text>
-              <TextInput
-                placeholder="Enter contact information"
-                value={form.contact}
-                onChangeText={(text) => setForm(prev => ({ ...prev, contact: text }))}
-                style={styles.textInput}
-              />
-            </View>
-
-            {/* Credit */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Credit Amount</Text>
-              <TextInput
-                placeholder="Enter credit amount"
-                value={form.credit}
-                onChangeText={(text) => setForm(prev => ({ ...prev, credit: text }))}
-                keyboardType="numeric"
-                style={styles.textInput}
-              />
-            </View>
-
-            {/* Items */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Items *</Text>
-              
-              {/* Add Item Input */}
-              <View style={styles.addItemContainer}>
-                <TextInput
-                  placeholder="Enter item name"
-                  value={newItem}
-                  onChangeText={setNewItem}
-                  style={styles.itemInput}
-                />
-                <TouchableOpacity
-                  onPress={handleAddItem}
-                  style={styles.addItemButton}
-                >
-                  <MaterialIcons name="add" size={18} color="#fff" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Items List */}
-              {form.items.length > 0 && (
-                <View style={styles.itemsList}>
-                  {form.items.map((item, index) => (
-                    <View key={index} style={styles.itemRow}>
-                      <Text style={styles.itemText}>{item}</Text>
-                      <TouchableOpacity
-                        onPress={() => handleRemoveItem(index)}
-                        style={styles.removeItemButton}
-                      >
-                        <MaterialIcons name="close" size={16} color="#dc2626" />
-                      </TouchableOpacity>
-                    </View>
+            {/* Existing Items */}
+            {allItems.length > 0 && (
+              <View style={styles.existingItemsContainer}>
+                <Text style={styles.existingItemsTitle}>Existing Items:</Text>
+                <View style={styles.existingItemsList}>
+                  {allItems.map((item, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => handleSelectExistingItem(item)}
+                      style={styles.existingItemButton}
+                    >
+                      <Text style={styles.existingItemText}>{item}</Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
-              )}
-            </View>
-          </View>
-        </ScrollView>
+              </View>
+            )}
 
-        {/* Footer */}
-        <View style={styles.footer}>
+            {/* Selected Items */}
+            {form.items.length > 0 && (
+              <View style={styles.selectedItemsContainer}>
+                <Text style={styles.selectedItemsTitle}>Selected Items:</Text>
+                {form.items.map((item, index) => (
+                  <View key={index} style={styles.selectedItemRow}>
+                    <Text style={styles.selectedItemText}>{item}</Text>
+                    <TouchableOpacity
+                      onPress={() => handleRemoveItem(index)}
+                      style={styles.removeItemButton}
+                    >
+                      <MaterialIcons name="remove" size={16} color="#dc2626" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Submit Button */}
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={loading}
@@ -181,7 +207,7 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
               {loading ? 'Adding...' : 'Add Vendor'}
             </Text>
           </TouchableOpacity>
-        </View>
+        </KeyboardAwarePopup>
       </View>
     </View>
   );
@@ -200,125 +226,141 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   modalContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: '90%',
     maxWidth: 400,
     maxHeight: '90%',
     minHeight: 500,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  headerTitle: {
+  title: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1f2937',
   },
   closeButton: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-    padding: 8,
+    padding: 5,
   },
-  formContainer: {
+  keyboardAwareContainer: {
     flex: 1,
-    padding: 16,
   },
-  formContent: {
-    gap: 16,
+  contentContainer: {
+    padding: 20,
   },
-  inputContainer: {
-    marginBottom: 16,
+  section: {
+    marginBottom: 20,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#374151',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   textInput: {
-    width: '100%',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#d1d5db',
-    backgroundColor: '#f9fafb',
-    color: '#1f2937',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 16,
+    color: '#1f2937',
+    backgroundColor: '#fff',
+    marginBottom: 12,
   },
   addItemContainer: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  itemInput: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#f9fafb',
-    color: '#1f2937',
-    fontSize: 16,
+    alignItems: 'center',
+    marginBottom: 15,
   },
   addItemButton: {
     backgroundColor: '#2563eb',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
     borderRadius: 8,
+    padding: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  itemsList: {
+  existingItemsContainer: {
+    marginBottom: 15,
+  },
+  existingItemsTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+    marginBottom: 8,
+  },
+  existingItemsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  existingItemButton: {
     backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
-  itemText: {
-    color: '#1f2937',
-    flex: 1,
+  existingItemText: {
     fontSize: 14,
+    color: '#374151',
+  },
+  selectedItemsContainer: {
+    marginBottom: 15,
+  },
+  selectedItemsTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#059669',
+    marginBottom: 8,
+  },
+  selectedItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  selectedItemText: {
+    fontSize: 14,
+    color: '#065f46',
+    flex: 1,
   },
   removeItemButton: {
-    backgroundColor: '#fef2f2',
-    borderRadius: 20,
     padding: 4,
-    marginLeft: 8,
-  },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
   },
   submitButton: {
-    width: '100%',
+    backgroundColor: '#2563eb',
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#2563eb',
-    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 10,
   },
   submitButtonDisabled: {
     backgroundColor: '#9ca3af',
   },
   submitButtonText: {
-    color: '#ffffff',
-    textAlign: 'center',
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
-    fontSize: 18,
   },
 }); 

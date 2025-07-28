@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import KeyboardAwarePopup from './KeyboardAwarePopup';
 
 interface AddProductPopupProps {
   token: string;
@@ -35,14 +36,14 @@ export default function AddProductPopup({ token, onClose }: AddProductPopupProps
       const res = await axios.post(`${BACKEND_URL}/api/addproducts`, form, {
         headers: { 'Content-Type': 'application/json', Authorization: token }
       });
-      alert(res.data.message || "Product added!");
+      Alert.alert('Success', res.data.message || "Product added!");
       onClose();
     } catch (err: any) {
       console.error('Error adding product:', err);
       if (err.response?.status === 403) {
-        alert('Authentication failed. Please login again.');
+        Alert.alert('Error', 'Authentication failed. Please login again.');
       } else {
-        alert('Failed to add product. Please try again.');
+        Alert.alert('Error', 'Failed to add product. Please try again.');
       }
     }
   };
@@ -59,7 +60,12 @@ export default function AddProductPopup({ token, onClose }: AddProductPopupProps
         </Pressable>
         {/* Title */}
         <Text style={styles.title}>Add Product</Text>
-        <View style={styles.formContainer}>
+        
+        <KeyboardAwarePopup
+          style={styles.keyboardAwareContainer}
+          contentContainerStyle={styles.formContainer}
+          extraScrollHeight={100}
+        >
           <TextInput
             placeholder="Product Name"
             value={form.productName}
@@ -96,7 +102,7 @@ export default function AddProductPopup({ token, onClose }: AddProductPopupProps
           >
             <Text style={styles.submitButtonText}>Submit</Text>
           </TouchableOpacity>
-        </View>
+        </KeyboardAwarePopup>
       </View>
     </View>
   );
@@ -126,6 +132,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     overflow: 'hidden',
     position: 'relative',
+    maxHeight: '90%',
   },
   closeButton: {
     position: 'absolute',
@@ -143,6 +150,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: 28, // pt-7
     paddingBottom: 8, // pb-2
+  },
+  keyboardAwareContainer: {
+    flex: 1,
   },
   formContainer: {
     paddingHorizontal: 24, // px-6
