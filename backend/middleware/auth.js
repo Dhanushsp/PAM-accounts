@@ -10,7 +10,8 @@ export default function (req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('Auth middleware - Token decoded successfully:', decoded);
-    req.admin = decoded;
+    // The decoded token has { id: admin._id }, so we need to structure it properly
+    req.user = { id: decoded.id };
     next();
   } catch (error) {
     console.log('Auth middleware - Token verification failed:', error.message);
