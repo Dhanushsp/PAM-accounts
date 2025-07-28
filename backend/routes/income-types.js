@@ -6,16 +6,21 @@ const router = express.Router();
 
 // Get all income types for the user
 router.get('/', auth, async (req, res) => {
+  if (!req.user || !req.user.id) {
+    console.log("Route /income-types - Missing user id after auth middleware");
+    return res.status(401).json({ message: 'Unauthorized: Missing user id' });
+  }
+
   try {
     const incomeTypes = await IncomeType.find({ user: req.user.id });
-    
+
     // Calculate total amount for each type by aggregating entries
     const typesWithEntries = await Promise.all(
       incomeTypes.map(async (type) => {
         const IncomeEntry = (await import('../models/IncomeEntry.js')).default;
         const entries = await IncomeEntry.find({ typeId: type._id });
         const totalAmount = entries.reduce((sum, entry) => sum + entry.amount, 0);
-        
+
         return {
           _id: type._id,
           name: type.name,
@@ -31,7 +36,7 @@ router.get('/', auth, async (req, res) => {
         };
       })
     );
-    
+
     res.json(typesWithEntries);
   } catch (error) {
     console.error('Error fetching income types:', error);
