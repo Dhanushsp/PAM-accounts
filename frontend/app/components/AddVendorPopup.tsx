@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, Keyboard, Dimensions, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -17,10 +17,36 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
     credit: '',
     items: [] as string[]
   });
+  const [availableItems, setAvailableItems] = useState<string[]>([]);
   const [newItem, setNewItem] = useState('');
-  const [allItems, setAllItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const insets = useSafeAreaInsets();
+
+  // Keyboard detection
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const screenHeight = Dimensions.get('window').height;
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardVisible(true);
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  // Calculate dynamic heights based on keyboard state
+  const availableHeight = screenHeight - keyboardHeight - 40;
+  const containerMaxHeight = keyboardVisible 
+    ? Math.min(screenHeight * 0.8, availableHeight)
+    : screenHeight * 0.95;
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
@@ -30,16 +56,10 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
 
   const fetchAllItems = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/vendors`, {
+      const response = await axios.get(`${BACKEND_URL}/api/items`, {
         headers: { Authorization: token }
       });
-      
-      // Extract all unique items from all vendors
-      const items = new Set<string>();
-      response.data.forEach((vendor: any) => {
-        vendor.items.forEach((item: string) => items.add(item));
-      });
-      setAllItems(Array.from(items));
+      setAvailableItems(response.data.items || []);
     } catch (error) {
       console.error('Error fetching items:', error);
     }
@@ -55,14 +75,14 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
     }
   };
 
-  const handleRemoveItem = (index: number) => {
+  const handleRemoveItem = (item: string) => {
     setForm(prev => ({
       ...prev,
-      items: prev.items.filter((_, i) => i !== index)
+      items: prev.items.filter((i) => i !== item)
     }));
   };
 
-  const handleSelectExistingItem = (item: string) => {
+  const handleItemSelect = (item: string) => {
     if (!form.items.includes(item)) {
       setForm(prev => ({
         ...prev,
@@ -100,114 +120,141 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
 
   return (
     <View style={styles.overlay}>
-      <View style={styles.modalContainer}>
-        {/* Header */}
-        <View style={styles.header}>
+      <View style={[
+        styles.keyboardAvoidingTop,
+        keyboardVisible && {
+          justifyContent: 'flex-end',
+          paddingBottom: 20,
+        }
+      ]}>
+        <View style={[
+          styles.container, 
+          { maxHeight: containerMaxHeight }, 
+          styles.containerTop,
+          keyboardVisible && {
+            marginBottom: 0,
+          }
+        ]}>
+          {/* Close button */}
+          <Pressable onPress={onClose} style={styles.closeButton}>
+            <MaterialIcons name="close" size={22} color="#64748b" />
+          </Pressable>
+
           <Text style={styles.title}>Add Vendor</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialIcons name="close" size={24} color="#64748b" />
-          </TouchableOpacity>
-        </View>
 
-        <KeyboardAwarePopup
-          style={styles.keyboardAwareContainer}
-          contentContainerStyle={styles.contentContainer}
-          extraScrollHeight={100}
-        >
-          {/* Basic Info */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Basic Information</Text>
-            <TextInput
-              placeholder="Vendor Name"
-              value={form.name}
-              onChangeText={(text) => setForm(prev => ({ ...prev, name: text }))}
-              style={styles.textInput}
-              placeholderTextColor="#888"
-            />
-            <TextInput
-              placeholder="Contact Number"
-              value={form.contact}
-              onChangeText={(text) => setForm(prev => ({ ...prev, contact: text }))}
-              style={styles.textInput}
-              keyboardType="phone-pad"
-              placeholderTextColor="#888"
-            />
-            <TextInput
-              placeholder="Credit Amount"
-              value={form.credit}
-              onChangeText={(text) => setForm(prev => ({ ...prev, credit: text }))}
-              style={styles.textInput}
-              keyboardType="numeric"
-              placeholderTextColor="#888"
-            />
-          </View>
-
-          {/* Items Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Items</Text>
-            
-            {/* Add New Item */}
-            <View style={styles.addItemContainer}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled={true}
+          >
+            {/* Basic Info */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Basic Information</Text>
+              
               <TextInput
-                placeholder="Add new item"
-                value={newItem}
-                onChangeText={setNewItem}
-                style={[styles.textInput, { flex: 1, marginBottom: 0, marginRight: 8 }]}
+                placeholder="Vendor Name"
+                value={form.name}
+                onChangeText={(text) => setForm({...form, name: text})}
+                style={styles.input}
                 placeholderTextColor="#888"
               />
-              <TouchableOpacity onPress={handleAddItem} style={styles.addItemButton}>
-                <MaterialIcons name="add" size={20} color="#fff" />
-              </TouchableOpacity>
+
+              <TextInput
+                placeholder="Contact Number"
+                value={form.contact}
+                onChangeText={(text) => setForm({...form, contact: text})}
+                style={styles.input}
+                placeholderTextColor="#888"
+              />
+
+              <TextInput
+                placeholder="Credit Amount"
+                value={form.credit}
+                onChangeText={(text) => setForm({...form, credit: text})}
+                keyboardType="numeric"
+                style={styles.input}
+                placeholderTextColor="#888"
+              />
             </View>
 
-            {/* Existing Items */}
-            {allItems.length > 0 && (
-              <View style={styles.existingItemsContainer}>
-                <Text style={styles.existingItemsTitle}>Existing Items:</Text>
-                <View style={styles.existingItemsList}>
-                  {allItems.map((item, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => handleSelectExistingItem(item)}
-                      style={styles.existingItemButton}
-                    >
-                      <Text style={styles.existingItemText}>{item}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+            {/* Items Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Items</Text>
+              
+              {/* Add New Item */}
+              <View style={styles.addItemRow}>
+                <TextInput
+                  placeholder="Add new item"
+                  value={newItem}
+                  onChangeText={setNewItem}
+                  style={styles.addItemInput}
+                  placeholderTextColor="#888"
+                />
+                <TouchableOpacity onPress={handleAddItem} style={styles.addItemButton}>
+                  <MaterialIcons name="add" size={20} color="#fff" />
+                </TouchableOpacity>
               </View>
-            )}
 
-            {/* Selected Items */}
-            {form.items.length > 0 && (
-              <View style={styles.selectedItemsContainer}>
-                <Text style={styles.selectedItemsTitle}>Selected Items:</Text>
-                {form.items.map((item, index) => (
-                  <View key={index} style={styles.selectedItemRow}>
-                    <Text style={styles.selectedItemText}>{item}</Text>
-                    <TouchableOpacity
-                      onPress={() => handleRemoveItem(index)}
-                      style={styles.removeItemButton}
-                    >
-                      <MaterialIcons name="remove" size={16} color="#dc2626" />
-                    </TouchableOpacity>
+              {/* Existing Items */}
+              {availableItems.length > 0 && (
+                <View style={styles.existingItemsContainer}>
+                  <Text style={styles.existingItemsTitle}>Existing Items:</Text>
+                  <View style={styles.existingItemsList}>
+                    {availableItems.map((item, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        onPress={() => handleItemSelect(item)}
+                        style={[
+                          styles.itemChip,
+                          form.items.includes(item) && styles.itemChipSelected
+                        ]}
+                      >
+                        <Text style={[
+                          styles.itemChipText,
+                          form.items.includes(item) && styles.itemChipTextSelected
+                        ]}>
+                          {item}
+                        </Text>
+                        {form.items.includes(item) && (
+                          <MaterialIcons name="check" size={16} color="#fff" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                ))}
-              </View>
-            )}
-          </View>
+                </View>
+              )}
 
-          {/* Submit Button */}
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={loading}
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-          >
-            <Text style={styles.submitButtonText}>
-              {loading ? 'Adding...' : 'Add Vendor'}
-            </Text>
-          </TouchableOpacity>
-        </KeyboardAwarePopup>
+              {/* Selected Items */}
+              {form.items.length > 0 && (
+                <View style={styles.selectedItemsContainer}>
+                  <Text style={styles.selectedItemsTitle}>Selected Items:</Text>
+                  <View style={styles.selectedItemsList}>
+                    {form.items.map((item, index) => (
+                      <View key={index} style={styles.selectedItemChip}>
+                        <Text style={styles.selectedItemChipText}>{item}</Text>
+                        <TouchableOpacity onPress={() => handleRemoveItem(item)}>
+                          <MaterialIcons name="close" size={16} color="#64748b" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={loading}
+              style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+            >
+              <Text style={styles.submitButtonText}>
+                {loading ? 'Adding...' : 'Add Vendor'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -225,41 +272,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
   },
-  modalContainer: {
+  keyboardAvoidingTop: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'flex-start',
+    paddingTop: 20,
+    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  container: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '90%',
-    maxWidth: 400,
-    maxHeight: '90%',
-    minHeight: 500,
+    width: '91%',
+    maxWidth: 480,
+    borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+  containerTop: {
+    marginTop: 0,
+  },
+  closeButton: {
+    alignSelf: 'flex-end',
+    padding: 10,
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1f2937',
+    textAlign: 'center',
+    marginBottom: 15,
   },
-  closeButton: {
-    padding: 5,
-  },
-  keyboardAwareContainer: {
-    flex: 1,
+  scrollView: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 8,
+    flexGrow: 1,
   },
   contentContainer: {
-    padding: 20,
+    flexGrow: 1,
   },
   section: {
     marginBottom: 20,
@@ -270,21 +328,34 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 10,
   },
-  textInput: {
+  input: {
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#000',
     fontSize: 16,
-    color: '#1f2937',
-    backgroundColor: '#fff',
-    marginBottom: 12,
   },
-  addItemContainer: {
+  addItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 15,
+  },
+  addItemInput: {
+    flex: 1,
+    marginBottom: 0,
+    marginRight: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#000',
+    fontSize: 16,
   },
   addItemButton: {
     backgroundColor: '#2563eb',
@@ -307,7 +378,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  existingItemButton: {
+  itemChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f3f4f6',
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -315,9 +388,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
-  existingItemText: {
+  itemChipSelected: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  itemChipText: {
     fontSize: 14,
     color: '#374151',
+  },
+  itemChipTextSelected: {
+    color: '#fff',
   },
   selectedItemsContainer: {
     marginBottom: 15,
@@ -328,39 +408,45 @@ const styles = StyleSheet.create({
     color: '#059669',
     marginBottom: 8,
   },
-  selectedItemRow: {
+  selectedItemsList: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  selectedItemChip: {
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ecfdf5',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
-    marginBottom: 6,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#a7f3d0',
   },
-  selectedItemText: {
+  selectedItemChipText: {
     fontSize: 14,
     color: '#065f46',
-    flex: 1,
-  },
-  removeItemButton: {
-    padding: 4,
+    marginRight: 8,
   },
   submitButton: {
     backgroundColor: '#2563eb',
     paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    marginTop: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.10,
+    shadowRadius: 4,
   },
   submitButtonDisabled: {
     backgroundColor: '#9ca3af',
   },
   submitButtonText: {
     color: '#fff',
-    fontSize: 16,
+    textAlign: 'center',
     fontWeight: '600',
+    fontSize: 16,
   },
 }); 

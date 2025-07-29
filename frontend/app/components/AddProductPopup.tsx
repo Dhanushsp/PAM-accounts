@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, Keyboard, Dimensions, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import KeyboardAwarePopup from './KeyboardAwarePopup';
@@ -7,15 +7,49 @@ import KeyboardAwarePopup from './KeyboardAwarePopup';
 interface AddProductPopupProps {
   token: string;
   onClose: () => void;
+  onProductAdded: () => void;
+  editProduct?: {
+    productName: string;
+    pricePerPack: string;
+    kgsPerPack: string;
+    pricePerKg: string;
+  };
 }
 
-export default function AddProductPopup({ token, onClose }: AddProductPopupProps) {
+export default function AddProductPopup({ token, onClose, onProductAdded, editProduct }: AddProductPopupProps) {
   const [form, setForm] = useState({
-    productName: '',
-    pricePerPack: '',
-    kgsPerPack: '',
-    pricePerKg: ''
+    productName: editProduct?.productName || '',
+    pricePerKg: editProduct?.pricePerKg?.toString() || '',
+    pricePerPack: editProduct?.pricePerPack?.toString() || '',
+    kgsPerPack: editProduct?.kgsPerPack?.toString() || '',
   });
+
+  // Keyboard detection
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const screenHeight = Dimensions.get('window').height;
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardVisible(true);
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  // Calculate dynamic heights based on keyboard state
+  const availableHeight = screenHeight - keyboardHeight - 40;
+  const containerMaxHeight = keyboardVisible 
+    ? Math.min(screenHeight * 0.8, availableHeight)
+    : screenHeight * 0.95;
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
@@ -38,6 +72,7 @@ export default function AddProductPopup({ token, onClose }: AddProductPopupProps
       });
       Alert.alert('Success', res.data.message || "Product added!");
       onClose();
+      onProductAdded();
     } catch (err: any) {
       console.error('Error adding product:', err);
       if (err.response?.status === 403) {
@@ -50,59 +85,77 @@ export default function AddProductPopup({ token, onClose }: AddProductPopupProps
 
   return (
     <View style={styles.overlay}>
-      <View style={styles.container}>
-        {/* Close */}
-        <Pressable
-          onPress={onClose}
-          style={[styles.closeButton, { elevation: 3 }]}
-        >
-          <MaterialIcons name="close" size={22} color="#64748b" />
-        </Pressable>
-        {/* Title */}
-        <Text style={styles.title}>Add Product</Text>
-        
-        <KeyboardAwarePopup
-          style={styles.keyboardAwareContainer}
-          contentContainerStyle={styles.formContainer}
-          extraScrollHeight={100}
-        >
-          <TextInput
-            placeholder="Product Name"
-            value={form.productName}
-            onChangeText={v => handleChange('productName', v)}
-            style={styles.input}
-            placeholderTextColor="#888"
-          />
-          <TextInput
-            placeholder="Price per Pack"
-            value={form.pricePerPack}
-            onChangeText={v => handleChange('pricePerPack', v)}
-            keyboardType="numeric"
-            style={styles.input}
-            placeholderTextColor="#888"
-          />
-          <TextInput
-            placeholder="Kgs per Pack"
-            value={form.kgsPerPack}
-            onChangeText={v => handleChange('kgsPerPack', v)}
-            keyboardType="numeric"
-            style={styles.input}
-            placeholderTextColor="#888"
-          />
-          <TextInput
-            placeholder="Price per Kg"
-            value={form.pricePerKg}
-            editable={false}
-            style={styles.inputDisabled}
-            placeholderTextColor="#888"
-          />
-          <TouchableOpacity
-            onPress={handleSubmit}
-            style={styles.submitButton}
+      <View style={[
+        styles.keyboardAvoidingTop,
+        keyboardVisible && {
+          justifyContent: 'flex-end',
+          paddingBottom: 20,
+        }
+      ]}>
+        <View style={[
+          styles.container, 
+          { maxHeight: containerMaxHeight }, 
+          styles.containerTop,
+          keyboardVisible && {
+            marginBottom: 0,
+          }
+        ]}>
+          {/* Close button */}
+          <Pressable onPress={onClose} style={styles.closeButton}>
+            <MaterialIcons name="close" size={22} color="#64748b" />
+          </Pressable>
+
+          <Text style={styles.title}>Add Product</Text>
+
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled={true}
           >
-            <Text style={styles.submitButtonText}>Submit</Text>
-          </TouchableOpacity>
-        </KeyboardAwarePopup>
+            <TextInput
+              placeholder="Product Name"
+              value={form.productName}
+              onChangeText={v => handleChange('productName', v)}
+              style={styles.input}
+              placeholderTextColor="#888"
+            />
+
+            <TextInput
+              placeholder="Price per Kg"
+              value={form.pricePerKg}
+              onChangeText={v => handleChange('pricePerKg', v)}
+              keyboardType="numeric"
+              style={styles.input}
+              placeholderTextColor="#888"
+            />
+
+            <TextInput
+              placeholder="Price per Pack"
+              value={form.pricePerPack}
+              onChangeText={v => handleChange('pricePerPack', v)}
+              keyboardType="numeric"
+              style={styles.input}
+              placeholderTextColor="#888"
+            />
+
+            <TextInput
+              placeholder="Kgs per Pack"
+              value={form.kgsPerPack}
+              onChangeText={v => handleChange('kgsPerPack', v)}
+              keyboardType="numeric"
+              style={styles.input}
+              placeholderTextColor="#888"
+            />
+
+            <TouchableOpacity
+              onPress={handleSubmit}
+              style={styles.submitButton}
+            >
+              <Text style={styles.submitButtonText}>Submit</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -121,18 +174,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
+  keyboardAvoidingTop: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'flex-start',
+    paddingTop: 20,
+    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
   container: {
     backgroundColor: '#fff',
-    width: '91%', // w-11/12
-    maxWidth: 480, // max-w-xl
-    borderRadius: 24, // rounded-3xl
+    width: '91%',
+    maxWidth: 480,
+    borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     overflow: 'hidden',
     position: 'relative',
-    maxHeight: '90%',
+  },
+  containerTop: {
+    marginTop: 0,
   },
   closeButton: {
     position: 'absolute',
@@ -160,15 +227,15 @@ const styles = StyleSheet.create({
     paddingTop: 8, // pt-2
   },
   input: {
-    marginBottom: 16, // mb-4
-    paddingHorizontal: 16, // px-4
-    paddingVertical: 12, // py-3
-    borderRadius: 16, // rounded-xl
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb', // border-gray-200
-    backgroundColor: '#f9fafb', // bg-gray-50
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
     color: '#000',
-    fontSize: 16, // text-base
+    fontSize: 16,
   },
   inputDisabled: {
     marginBottom: 16, // mb-4
@@ -182,21 +249,30 @@ const styles = StyleSheet.create({
     fontSize: 16, // text-base
   },
   submitButton: {
-    width: '100%',
-    backgroundColor: '#2563eb', // bg-blue-600
-    paddingVertical: 12, // py-3
-    borderRadius: 16, // rounded-xl
-    marginTop: 8, // mt-2
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    marginTop: 16,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.10,
     shadowRadius: 4,
-    alignItems: 'center',
   },
   submitButtonText: {
     color: '#fff',
     textAlign: 'center',
-    fontWeight: '600', // font-semibold
-    fontSize: 16, // text-base
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  scrollView: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 8,
+    flexGrow: 1,
+  },
+  contentContainer: {
+    flexGrow: 1,
   },
 });

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, Keyboard, Dimensions, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import KeyboardAwarePopup from '../KeyboardAwarePopup';
+import { KeyboardAvoidingView, Platform } from 'react-native';
 
 interface SavingsType {
   _id: string;
@@ -17,13 +18,41 @@ interface AddSavingsPopupProps {
 }
 
 export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddSavingsPopupProps) {
-  const [savingsTypes, setSavingsTypes] = useState<SavingsType[]>([]);
-  const [selectedType, setSelectedType] = useState<SavingsType | null>(null);
-  const [newTypeName, setNewTypeName] = useState('');
+  const [selectedType, setSelectedType] = useState<any>(null);
+  const [newType, setNewType] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [savingsTypes, setSavingsTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showNewTypeInput, setShowNewTypeInput] = useState(false);
+
+  // Keyboard detection
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const screenHeight = Dimensions.get('window').height;
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardVisible(true);
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  // Calculate dynamic heights based on keyboard state
+  const availableHeight = screenHeight - keyboardHeight - insets.top - insets.bottom - 40;
+  const containerMaxHeight = keyboardVisible 
+    ? Math.min(screenHeight * 0.85, availableHeight)
+    : screenHeight * 0.95;
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
@@ -44,14 +73,14 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
   };
 
   const handleAddNewType = async () => {
-    if (!newTypeName.trim()) {
+    if (!newType.trim()) {
       Alert.alert('Error', 'Please enter a type name');
       return;
     }
 
     try {
       const response = await axios.post(`${BACKEND_URL}/api/savings-types`, {
-        name: newTypeName.trim()
+        name: newType.trim()
       }, {
         headers: { Authorization: token }
       });
@@ -59,7 +88,7 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
       const newType = response.data;
       setSavingsTypes(prev => [...prev, newType]);
       setSelectedType(newType);
-      setNewTypeName('');
+      setNewType('');
       setShowNewTypeInput(false);
     } catch (error: any) {
       console.error('Error adding savings type:', error);
@@ -109,21 +138,43 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
   };
 
   return (
-    <View style={styles.overlay}>
-      <View style={styles.modalContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Add Savings</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialIcons name="close" size={24} color="#64748b" />
-          </TouchableOpacity>
-        </View>
+    <View style={[
+      styles.overlay,
+      keyboardVisible && {
+        justifyContent: 'flex-start',
+        paddingTop: insets.top,
+      }
+    ]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoidingContainer}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <View style={[
+          styles.container, 
+          { 
+            maxHeight: containerMaxHeight,
+            minHeight: keyboardVisible ? Math.min(screenHeight * 0.6, availableHeight) : undefined
+          }
+        ]}>
+          {/* Close button */}
+          <Pressable onPress={onClose} style={styles.closeButton}>
+            <MaterialIcons name="close" size={22} color="#64748b" />
+          </Pressable>
 
-        <KeyboardAwarePopup
-          style={styles.keyboardAwareContainer}
-          contentContainerStyle={styles.contentContainer}
-          extraScrollHeight={100}
-        >
+          <Text style={styles.title}>Add Savings</Text>
+
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+            bounces={false}
+            nestedScrollEnabled={true}
+            scrollEnabled={true}
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="interactive"
+          >
           {/* Savings Type Selection */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Savings Type</Text>
@@ -157,8 +208,8 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
               <View style={styles.newTypeContainer}>
                 <TextInput
                   placeholder="Enter new type name"
-                  value={newTypeName}
-                  onChangeText={setNewTypeName}
+                  value={newType}
+                  onChangeText={setNewType}
                   style={styles.textInput}
                   placeholderTextColor="#888"
                 />
@@ -172,7 +223,7 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
                   <TouchableOpacity
                     onPress={() => {
                       setShowNewTypeInput(false);
-                      setNewTypeName('');
+                      setNewType('');
                     }}
                     style={styles.cancelTypeButton}
                   >
@@ -195,7 +246,7 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
                       {type.name}
                     </Text>
                     <Text style={[styles.typeItemAmount, selectedType?._id === type._id && styles.selectedTypeItemAmount]}>
-                      ₹{type.totalAmount.toFixed(2)}
+                      ₹{(type.totalAmount || 0).toFixed(2)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -228,13 +279,13 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
               {/* Current Total */}
               <View style={styles.totalContainer}>
                 <Text style={styles.totalLabel}>Current Total:</Text>
-                <Text style={styles.totalValue}>₹{getCurrentTotal().toFixed(2)}</Text>
+                <Text style={styles.totalValue}>₹{(getCurrentTotal() || 0).toFixed(2)}</Text>
               </View>
 
               {/* New Total */}
               <View style={styles.totalContainer}>
                 <Text style={styles.totalLabel}>New Total:</Text>
-                <Text style={styles.totalValue}>₹{getNewTotal().toFixed(2)}</Text>
+                <Text style={styles.totalValue}>₹{(getNewTotal() || 0).toFixed(2)}</Text>
               </View>
             </View>
           )}
@@ -249,8 +300,9 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
               {loading ? 'Adding...' : 'Add Savings'}
             </Text>
           </TouchableOpacity>
-        </KeyboardAwarePopup>
-      </View>
+        </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -267,41 +319,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
   },
-  modalContainer: {
+  keyboardAvoidingContainer: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  container: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '90%',
-    maxWidth: 400,
-    maxHeight: '90%',
-    minHeight: 500,
+    width: '92%',
+    maxWidth: 480,
+    borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    overflow: 'hidden',
+    paddingVertical: 20,
+    flex: 1,
+    maxHeight: '95%',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 999,
+    padding: 8,
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: '#1d4ed8',
+    textAlign: 'center',
+    paddingTop: 28,
+    paddingBottom: 12,
   },
-  closeButton: {
-    padding: 5,
-  },
-  keyboardAwareContainer: {
+  scrollView: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 8,
     flex: 1,
+    minHeight: 0,
   },
   contentContainer: {
-    padding: 20,
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   section: {
     marginBottom: 20,
@@ -310,7 +376,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   typeSelectionContainer: {
     flexDirection: 'row',
@@ -322,19 +388,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dropdown: {
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
   },
   dropdownText: {
     fontSize: 16,
-    color: '#1f2937',
+    color: '#000',
     flex: 1,
   },
   addTypeButton: {
@@ -348,15 +415,15 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   textInput: {
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#000',
     fontSize: 16,
-    color: '#1f2937',
-    backgroundColor: '#fff',
-    marginBottom: 12,
   },
   newTypeButtons: {
     flexDirection: 'row',
@@ -446,16 +513,22 @@ const styles = StyleSheet.create({
   submitButton: {
     backgroundColor: '#2563eb',
     paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    marginTop: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.10,
+    shadowRadius: 4,
   },
   submitButtonDisabled: {
     backgroundColor: '#9ca3af',
   },
   submitButtonText: {
     color: '#fff',
-    fontSize: 16,
+    textAlign: 'center',
     fontWeight: '600',
+    fontSize: 16,
   },
 }); 

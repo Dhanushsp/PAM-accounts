@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, Keyboard, Dimensions, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import KeyboardAwarePopup from '../KeyboardAwarePopup';
+import { KeyboardAvoidingView, Platform } from 'react-native';
+
 
 interface IncomeType {
   _id: string;
@@ -23,16 +25,44 @@ interface AddIncomePopupProps {
 }
 
 export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddIncomePopupProps) {
-  const [incomeTypes, setIncomeTypes] = useState<IncomeType[]>([]);
-  const [savingsTypes, setSavingsTypes] = useState<SavingsType[]>([]);
-  const [selectedType, setSelectedType] = useState<IncomeType | null>(null);
-  const [selectedSavingsType, setSelectedSavingsType] = useState<SavingsType | null>(null);
-  const [newTypeName, setNewTypeName] = useState('');
+  const [selectedType, setSelectedType] = useState<any>(null); // Initialize as null
+  const [newType, setNewType] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [isFromSavings, setIsFromSavings] = useState(false);
+  const [incomeTypes, setIncomeTypes] = useState<any[]>([]);
+  const [savingsTypes, setSavingsTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showNewTypeInput, setShowNewTypeInput] = useState(false);
+  const [isFromSavings, setIsFromSavings] = useState(false);
+  const [selectedSavingsType, setSelectedSavingsType] = useState<any>(null);
+
+  // Keyboard detection
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const screenHeight = Dimensions.get('window').height;
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardVisible(true);
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  // Calculate dynamic heights based on keyboard state
+  const availableHeight = screenHeight - keyboardHeight - insets.top - insets.bottom - 40;
+  const containerMaxHeight = keyboardVisible 
+    ? Math.min(screenHeight * 0.85, availableHeight)
+    : screenHeight * 0.95;
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
@@ -65,14 +95,14 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
   };
 
   const handleAddNewType = async () => {
-    if (!newTypeName.trim()) {
+    if (!newType.trim()) {
       Alert.alert('Error', 'Please enter a type name');
       return;
     }
 
     try {
       const response = await axios.post(`${BACKEND_URL}/api/income-types`, {
-        name: newTypeName.trim()
+        name: newType.trim()
       }, {
         headers: { Authorization: token }
       });
@@ -80,7 +110,7 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
       const newType = response.data;
       setIncomeTypes(prev => [...prev, newType]);
       setSelectedType(newType);
-      setNewTypeName('');
+      setNewType('');
       setShowNewTypeInput(false);
     } catch (error: any) {
       console.error('Error adding income type:', error);
@@ -145,21 +175,43 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
   };
 
   return (
-    <View style={styles.overlay}>
-      <View style={styles.modalContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Add Income</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialIcons name="close" size={24} color="#64748b" />
-          </TouchableOpacity>
-        </View>
+    <View style={[
+      styles.overlay,
+      keyboardVisible && {
+        justifyContent: 'flex-start',
+        paddingTop: insets.top,
+      }
+    ]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoidingContainer}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <View style={[
+          styles.container, 
+          { 
+            maxHeight: containerMaxHeight,
+            minHeight: keyboardVisible ? Math.min(screenHeight * 0.6, availableHeight) : undefined
+          }
+        ]}>
+          {/* Close button */}
+          <Pressable onPress={onClose} style={styles.closeButton}>
+            <MaterialIcons name="close" size={22} color="#64748b" />
+          </Pressable>
 
-        <KeyboardAwarePopup
-          style={styles.keyboardAwareContainer}
-          contentContainerStyle={styles.contentContainer}
-          extraScrollHeight={100}
-        >
+          <Text style={styles.title}>Add Income</Text>
+
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+            bounces={false}
+            nestedScrollEnabled={true}
+            scrollEnabled={true}
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="interactive"
+          >
           {/* Income Type Selection */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Income Type</Text>
@@ -193,8 +245,8 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
               <View style={styles.newTypeContainer}>
                 <TextInput
                   placeholder="Enter new type name"
-                  value={newTypeName}
-                  onChangeText={setNewTypeName}
+                  value={newType}
+                  onChangeText={setNewType}
                   style={styles.textInput}
                   placeholderTextColor="#888"
                 />
@@ -208,7 +260,7 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
                   <TouchableOpacity
                     onPress={() => {
                       setShowNewTypeInput(false);
-                      setNewTypeName('');
+                      setNewType('');
                     }}
                     style={styles.cancelTypeButton}
                   >
@@ -231,7 +283,7 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
                       {type.name}
                     </Text>
                     <Text style={[styles.typeItemAmount, selectedType?._id === type._id && styles.selectedTypeItemAmount]}>
-                      ₹{type.totalAmount.toFixed(2)}
+                      ₹{(type.totalAmount || 0).toFixed(2)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -274,7 +326,7 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
                 
                 {selectedSavingsType && (
                   <Text style={styles.savingsInfo}>
-                    Current Savings: ₹{selectedSavingsType.totalAmount.toFixed(2)}
+                    Current Savings: ₹{(selectedSavingsType.totalAmount || 0).toFixed(2)}
                   </Text>
                 )}
               </View>
@@ -306,13 +358,13 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
               {/* Current Total */}
               <View style={styles.totalContainer}>
                 <Text style={styles.totalLabel}>Current Total:</Text>
-                <Text style={styles.totalValue}>₹{getCurrentTotal().toFixed(2)}</Text>
+                <Text style={styles.totalValue}>₹{(getCurrentTotal() || 0).toFixed(2)}</Text>
               </View>
 
               {/* New Total */}
               <View style={styles.totalContainer}>
                 <Text style={styles.totalLabel}>New Total:</Text>
-                <Text style={styles.totalValue}>₹{getNewTotal().toFixed(2)}</Text>
+                <Text style={styles.totalValue}>₹{(getNewTotal() || 0).toFixed(2)}</Text>
               </View>
             </View>
           )}
@@ -327,8 +379,9 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
               {loading ? 'Adding...' : 'Add Income'}
             </Text>
           </TouchableOpacity>
-        </KeyboardAwarePopup>
-      </View>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -375,11 +428,38 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 5,
   },
-  keyboardAwareContainer: {
+  keyboardAvoidingContainer: {
     flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  container: {
+    backgroundColor: '#fff',
+    width: '92%',
+    maxWidth: 480,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    overflow: 'hidden',
+    paddingVertical: 20,
+    flex: 1,
+    maxHeight: '95%',
+  },
+  scrollView: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 8,
+    flex: 1,
+    minHeight: 0,
   },
   contentContainer: {
-    padding: 20,
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   section: {
     marginBottom: 20,

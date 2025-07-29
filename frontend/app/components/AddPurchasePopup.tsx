@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, Keyboard, Dimensions, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import KeyboardAwarePopup from './KeyboardAwarePopup';
+import { KeyboardAvoidingView, Platform } from 'react-native';
+
 
 interface Vendor {
   _id: string;
@@ -18,16 +19,46 @@ interface AddPurchasePopupProps {
 }
 
 export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupProps) {
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [selectedItem, setSelectedItem] = useState('');
+  const [selectedVendor, setSelectedVendor] = useState<any>(null);
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState<'packs' | 'kgs'>('packs');
   const [pricePerUnit, setPricePerUnit] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
+  const [items, setItems] = useState<string[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showItemModal, setShowItemModal] = useState(false);
+  const [showVendorModal, setShowVendorModal] = useState(false);
+
+  // Keyboard detection
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const screenHeight = Dimensions.get('window').height;
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardVisible(true);
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  // Calculate dynamic heights based on keyboard state
+  const availableHeight = screenHeight - keyboardHeight - insets.top - insets.bottom - 40;
+  const containerMaxHeight = keyboardVisible 
+    ? Math.min(screenHeight * 0.85, availableHeight) // Use more available space when at top
+    : screenHeight * 0.95;
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
@@ -37,9 +68,11 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
 
   const fetchVendors = async () => {
     try {
+      console.log('Fetching vendors...');
       const response = await axios.get(`${BACKEND_URL}/api/vendors`, {
         headers: { Authorization: token }
       });
+      console.log('Vendors fetched:', response.data);
       setVendors(response.data);
     } catch (error) {
       console.error('Error fetching vendors:', error);
@@ -121,168 +154,229 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
   };
 
   return (
-    <View style={styles.overlay}>
-      <View style={styles.modalContainer}>
-        {/* Header */}
-        <View style={styles.header}>
+    <View style={[
+      styles.overlay,
+      keyboardVisible && {
+        justifyContent: 'flex-start',
+        paddingTop: insets.top,
+      }
+    ]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoidingContainer}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <View style={[
+          styles.container, 
+          { 
+            maxHeight: containerMaxHeight,
+            minHeight: keyboardVisible ? Math.min(screenHeight * 0.6, availableHeight) : undefined
+          }
+        ]}>
+          {/* Close button */}
+          <Pressable onPress={onClose} style={styles.closeButton}>
+            <MaterialIcons name="close" size={22} color="#64748b" />
+          </Pressable>
+
           <Text style={styles.title}>Add Purchase</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialIcons name="close" size={24} color="#64748b" />
-          </TouchableOpacity>
-        </View>
 
-        <KeyboardAwarePopup
-          style={styles.keyboardAwareContainer}
-          contentContainerStyle={styles.contentContainer}
-          extraScrollHeight={100}
-        >
-          {/* Error Message */}
-          {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+            bounces={false}
+            nestedScrollEnabled={true}
+            scrollEnabled={true}
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="interactive"
+          >
+            {/* Error Message */}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {/* Vendor Selection */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select Vendor</Text>
-            <View style={styles.dropdownContainer}>
-              <TouchableOpacity
-                style={styles.dropdown}
-                onPress={() => {
-                  // Show vendor selection modal or dropdown
-                  if (vendors.length === 0) {
-                    Alert.alert('No Vendors', 'Please add vendors first');
-                  } else {
-                    // For now, just select the first vendor
-                    setSelectedVendor(vendors[0]);
-                  }
-                }}
-              >
-                <Text style={styles.dropdownText}>
-                  {selectedVendor ? selectedVendor.name : 'Select Vendor'}
-                </Text>
-                <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-            
+            {/* Item Selection */}
+            <Text style={styles.label}>Select Item</Text>
+            <TouchableOpacity
+              style={styles.dropdown}
+              onPress={() => setShowItemModal(true)}
+            >
+              <Text style={selectedItem ? styles.dropdownText : styles.dropdownPlaceholder}>
+                {selectedItem || 'Select an item'}
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
+            </TouchableOpacity>
+
+            {/* Vendor Selection */}
+            <Text style={styles.label}>Select Vendor</Text>
+            <TouchableOpacity
+              style={styles.dropdown}
+              onPress={() => setShowVendorModal(true)}
+            >
+              <Text style={selectedVendor ? styles.dropdownText : styles.dropdownPlaceholder}>
+                {selectedVendor ? selectedVendor.name : 'Select a vendor'}
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
+            </TouchableOpacity>
+
+            {/* Vendor Credit Display */}
             {selectedVendor && (
               <Text style={styles.creditText}>
                 Current Credit: ₹{selectedVendor.credit.toFixed(2)}
               </Text>
             )}
-          </View>
 
-          {/* Item Selection */}
-          {selectedVendor && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Select Item</Text>
-              <View style={styles.dropdownContainer}>
-                <TouchableOpacity
-                  style={styles.dropdown}
-                  onPress={() => {
-                    const items = getAvailableItems();
-                    if (items.length === 0) {
-                      Alert.alert('No Items', 'This vendor has no items');
-                    } else {
-                      setSelectedItem(items[0]);
-                    }
-                  }}
-                >
-                  <Text style={styles.dropdownText}>
-                    {selectedItem || 'Select Item'}
-                  </Text>
-                  <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
-                </TouchableOpacity>
+            {/* Quantity and Unit */}
+            <View style={styles.rowAlignCenter}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Quantity</Text>
+                <TextInput
+                  style={styles.input}
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  placeholder="Enter quantity"
+                  keyboardType="numeric"
+                  placeholderTextColor="#888"
+                />
               </View>
-            </View>
-          )}
-
-          {/* Purchase Details */}
-          {selectedItem && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Purchase Details</Text>
-              
-              {/* Unit Selection */}
-              <View style={styles.unitContainer}>
-                <Text style={styles.label}>Unit:</Text>
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={styles.label}>Unit</Text>
                 <View style={styles.unitButtons}>
-                  {(['packs', 'kgs'] as const).map((u) => (
-                    <TouchableOpacity
-                      key={u}
-                      style={[styles.unitButton, unit === u && styles.unitButtonActive]}
-                      onPress={() => setUnit(u)}
-                    >
-                      <Text style={[styles.unitButtonText, unit === u && styles.unitButtonTextActive]}>
-                        {u.toUpperCase()}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  <TouchableOpacity
+                    style={[styles.unitButton, unit === 'packs' && styles.unitButtonActive]}
+                    onPress={() => setUnit('packs')}
+                  >
+                    <Text style={[styles.unitButtonText, unit === 'packs' && styles.unitButtonTextActive]}>
+                      Packs
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.unitButton, unit === 'kgs' && styles.unitButtonActive]}
+                    onPress={() => setUnit('kgs')}
+                  >
+                    <Text style={[styles.unitButtonText, unit === 'kgs' && styles.unitButtonTextActive]}>
+                      Kgs
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
+            </View>
 
-              {/* Quantity */}
-              <TextInput
-                placeholder={`Quantity (${unit})`}
-                value={quantity}
-                onChangeText={setQuantity}
-                style={styles.textInput}
-                keyboardType="numeric"
-                placeholderTextColor="#888"
-              />
+            {/* Price per Unit */}
+            <Text style={styles.label}>Price per {unit === 'packs' ? 'Pack' : 'Kg'}</Text>
+            <TextInput
+              style={styles.input}
+              value={pricePerUnit}
+              onChangeText={setPricePerUnit}
+              placeholder={`Enter price per ${unit === 'packs' ? 'pack' : 'kg'}`}
+              keyboardType="numeric"
+              placeholderTextColor="#888"
+            />
 
-              {/* Price per Unit */}
-              <TextInput
-                placeholder={`Price per ${unit.slice(0, -1)}`}
-                value={pricePerUnit}
-                onChangeText={setPricePerUnit}
-                style={styles.textInput}
-                keyboardType="numeric"
-                placeholderTextColor="#888"
-              />
+            {/* Calculations Display */}
+            <View style={styles.calculationsContainer}>
+              <Text style={styles.calculationText}>
+                Total Purchase Price: ₹{getTotalPrice().toFixed(2)}
+              </Text>
+              <Text style={styles.calculationText}>
+                Total Amount to be Paid: ₹{getTotalAmountToBePaid().toFixed(2)}
+              </Text>
+            </View>
 
-              {/* Total Price (Read-only) */}
-              <View style={styles.readOnlyContainer}>
-                <Text style={styles.label}>Total Purchase Price:</Text>
-                <Text style={styles.readOnlyValue}>₹{getTotalPrice().toFixed(2)}</Text>
-              </View>
+            {/* Amount Paid */}
+            <Text style={styles.label}>Amount Paid</Text>
+            <TextInput
+              style={styles.input}
+              value={amountPaid}
+              onChangeText={setAmountPaid}
+              placeholder="Enter amount paid"
+              keyboardType="numeric"
+              placeholderTextColor="#888"
+            />
 
-              {/* Total Amount to be Paid */}
-              <View style={styles.readOnlyContainer}>
-                <Text style={styles.label}>Total Amount to be Paid:</Text>
-                <Text style={styles.readOnlyValue}>₹{getTotalAmountToBePaid().toFixed(2)}</Text>
-              </View>
+            {/* Updated Credit Display */}
+            <Text style={styles.updatedCreditText}>
+              Updated Credit: ₹{getUpdatedCredit().toFixed(2)}
+            </Text>
 
-              {/* Amount Paid */}
-              <TextInput
-                placeholder="Amount Paid"
-                value={amountPaid}
-                onChangeText={setAmountPaid}
-                style={styles.textInput}
-                keyboardType="numeric"
-                placeholderTextColor="#888"
-              />
+            {/* Submit Button */}
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={loading}
+              style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+            >
+              <Text style={styles.submitButtonText}>
+                {loading ? 'Adding...' : 'Add Purchase'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
 
-              {/* Updated Credit (Read-only) */}
-              <View style={styles.readOnlyContainer}>
-                <Text style={styles.label}>Updated Credit:</Text>
-                <Text style={styles.readOnlyValue}>₹{getUpdatedCredit().toFixed(2)}</Text>
+          {/* Vendor Selection Modal */}
+          {showVendorModal && (
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContainer}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Select Vendor</Text>
+                  <TouchableOpacity onPress={() => setShowVendorModal(false)}>
+                    <MaterialIcons name="close" size={24} color="#64748b" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.modalScrollView}>
+                  {vendors.length > 0 ? (
+                    vendors.map((vendor) => (
+                      <TouchableOpacity
+                        key={vendor._id}
+                        style={styles.modalItem}
+                        onPress={() => {
+                          setSelectedVendor(vendor);
+                          setSelectedItem(''); // Reset item when vendor changes
+                          setShowVendorModal(false);
+                        }}
+                      >
+                        <Text style={styles.modalItemText}>{vendor.name}</Text>
+                        <Text style={styles.modalItemSubtext}>Credit: ₹{vendor.credit.toFixed(2)}</Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text style={styles.modalItemText}>No vendors available</Text>
+                  )}
+                </ScrollView>
               </View>
             </View>
           )}
 
-          {/* Submit Button */}
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={loading || !selectedVendor || !selectedItem}
-            style={[styles.submitButton, (loading || !selectedVendor || !selectedItem) && styles.submitButtonDisabled]}
-          >
-            <Text style={styles.submitButtonText}>
-              {loading ? 'Adding...' : 'Add Purchase'}
-            </Text>
-          </TouchableOpacity>
-        </KeyboardAwarePopup>
-      </View>
+          {/* Item Selection Modal */}
+          {showItemModal && (
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContainer}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Select Item</Text>
+                  <TouchableOpacity onPress={() => setShowItemModal(false)}>
+                    <MaterialIcons name="close" size={24} color="#64748b" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.modalScrollView}>
+                  {getAvailableItems().length > 0 ? (
+                    getAvailableItems().map((item: string, index: number) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.modalItem}
+                        onPress={() => {
+                          setSelectedItem(item);
+                          setShowItemModal(false);
+                        }}
+                      >
+                        <Text style={styles.modalItemText}>{item}</Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text style={styles.modalItemText}>No items available for this vendor</Text>
+                  )}
+                </ScrollView>
+              </View>
+            </View>
+          )}
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -299,41 +393,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
   },
-  modalContainer: {
+  keyboardAvoidingContainer: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  container: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '90%',
-    maxWidth: 400,
-    maxHeight: '90%',
-    minHeight: 600,
+    width: '92%',
+    maxWidth: 480,
+    borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    overflow: 'hidden',
+    paddingVertical: 20,
+    flex: 1,
+    maxHeight: '95%',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 999,
+    padding: 8,
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: '#1d4ed8',
+    textAlign: 'center',
+    paddingTop: 28,
+    paddingBottom: 12,
   },
-  closeButton: {
-    padding: 5,
-  },
-  keyboardAwareContainer: {
+  scrollView: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 8,
     flex: 1,
+    minHeight: 0,
   },
   contentContainer: {
-    padding: 20,
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   errorContainer: {
     backgroundColor: '#fef2f2',
@@ -344,8 +451,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: {
-    color: '#dc2626',
-    fontSize: 14,
+    color: '#ef4444',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   section: {
     marginBottom: 20,
@@ -360,32 +468,38 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   dropdown: {
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
   },
   dropdownText: {
     fontSize: 16,
-    color: '#1f2937',
+    color: '#000',
+    flex: 1,
+  },
+  dropdownPlaceholder: {
+    fontSize: 16,
+    color: '#888',
     flex: 1,
   },
   creditText: {
     fontSize: 14,
-    color: '#059669',
-    fontWeight: '500',
+    color: '#4b5563',
+    marginBottom: 8,
   },
   unitContainer: {
     marginBottom: 12,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#374151',
     marginBottom: 8,
   },
@@ -395,25 +509,24 @@ const styles = StyleSheet.create({
   },
   unitButton: {
     flex: 1,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#f9fafb',
-    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    borderColor: '#e5e7eb',
   },
   unitButtonActive: {
     backgroundColor: '#dbeafe',
-    borderColor: '#2563eb',
+    borderColor: '#60a5fa',
   },
   unitButtonText: {
+    textAlign: 'center',
     fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
+    color: '#374151',
   },
   unitButtonTextActive: {
-    color: '#2563eb',
+    color: '#1d4ed8',
     fontWeight: '600',
   },
   textInput: {
@@ -426,6 +539,17 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     backgroundColor: '#fff',
     marginBottom: 12,
+  },
+  input: {
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#000',
+    fontSize: 16,
   },
   readOnlyContainer: {
     flexDirection: 'row',
@@ -444,19 +568,102 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2563eb',
   },
+  calculationsContainer: {
+    marginTop: 15,
+    marginBottom: 15,
+  },
+  calculationText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 5,
+  },
+  updatedCreditText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#059669',
+    marginTop: 10,
+    marginBottom: 16,
+  },
   submitButton: {
     backgroundColor: '#2563eb',
     paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    marginTop: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.10,
+    shadowRadius: 4,
   },
   submitButtonDisabled: {
     backgroundColor: '#9ca3af',
   },
   submitButtonText: {
     color: '#fff',
-    fontSize: 16,
+    textAlign: 'center',
     fontWeight: '600',
+    fontSize: 16,
+  },
+  rowAlignCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2000,
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1d4ed8',
+  },
+  modalScrollView: {
+    maxHeight: 300,
+    paddingHorizontal: 20,
+  },
+  modalItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  modalItemSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 4,
   },
 }); 

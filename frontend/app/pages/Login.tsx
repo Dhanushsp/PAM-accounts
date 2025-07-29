@@ -42,39 +42,39 @@ export default function Login({ setToken }: LoginProps) {
         contentContainerStyle={styles.contentContainer}
         extraScrollHeight={100}
       >
-        <View style={styles.container}>
-          <View style={styles.loginBox}>
-            <Text style={styles.title}>Login</Text>
-            <View style={styles.inputGroup}>
-              <TextInput
-                style={styles.input}
-                placeholder="Mobile"
-                value={mobile}
-                onChangeText={setMobile}
-                keyboardType="number-pad"
-                placeholderTextColor="#888"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                placeholderTextColor="#888"
-              />
-              <TouchableOpacity
-                onPress={handleLogin}
-                disabled={isLoading}
-                style={styles.loginButton}
-              >
-                <Text style={styles.loginButtonText}>
-                  {isLoading ? 'Logging in...' : 'Login'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      <View style={styles.container}>
+        <View style={styles.loginBox}>
+          <Text style={styles.title}>Login</Text>
+          <View style={styles.inputGroup}>
+            <TextInput
+              style={styles.input}
+              placeholder="Mobile"
+              value={mobile}
+              onChangeText={setMobile}
+              keyboardType="number-pad"
+              placeholderTextColor="#888"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              placeholderTextColor="#888"
+            />
+            <TouchableOpacity
+              onPress={handleLogin}
+              disabled={isLoading}
+              style={styles.loginButton}
+            >
+              <Text style={styles.loginButtonText}>
+                {isLoading ? 'Logging in...' : 'Login'}
+              </Text>
+            </TouchableOpacity>
           </View>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
+      </View>
       </KeyboardAwareView>
     </SafeAreaView>
   );

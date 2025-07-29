@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Pressable, StyleSheet, KeyboardAvoidingView, Platform, Keyboard, Dimensions, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 
@@ -48,7 +48,40 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Keyboard state
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
+
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
+
+  useEffect(() => {
+    // Set initial screen height
+    setScreenHeight(Dimensions.get('window').height);
+
+    // Add keyboard event listeners
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setKeyboardVisible(true);
+      }
+    );
+
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        setKeyboardVisible(false);
+      }
+    );
+
+    // Cleanup listeners
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -99,6 +132,14 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
     setProductDetails(details);
   };
 
+  const handleCustomerSelect = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setCustomerName(customer.name);
+    setCurrentCredit(customer.credit);
+    // Dismiss keyboard when customer is selected
+    Keyboard.dismiss();
+  };
+
   const handleSubmit = async () => {
     if (!selectedCustomer) return setError('Please select a customer');
     if (!productDetails.length) return setError('Please select at least one product');
@@ -116,7 +157,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
         date: new Date(saleDate)
       };
       await axios.post(`${BACKEND_URL}/api/sales`, data, { headers: { Authorization: token } });
-      alert('Sale added successfully!');
+      Alert.alert('Success', 'Sale added successfully!');
       onClose();
       onSetSortToRecent?.();
       setTimeout(() => onSaleAdded?.(), 100);
@@ -128,20 +169,46 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
     }
   };
 
+  // Calculate dynamic heights based on keyboard state
+  const availableHeight = screenHeight - keyboardHeight - 40; // Reduced margin for better space usage
+  const containerMaxHeight = keyboardVisible 
+    ? Math.min(screenHeight * 0.8, availableHeight) // Increased height to 80% of screen
+    : screenHeight * 0.95;
+  const scrollViewHeight = keyboardVisible 
+    ? availableHeight - 120 // Adjusted for better content visibility
+    : '80%';
+  const dropdownMaxHeight = keyboardVisible ? 120 : 160;
+
   return (
-    <View style={[styles.overlay, { flex: 1 }]}>
-      <View style={styles.container}>
+    <View style={styles.overlay}>
+      <View style={[
+        styles.keyboardAvoidingTop,
+        keyboardVisible && {
+          justifyContent: 'flex-end', // When keyboard is open, align to bottom of available space
+          paddingBottom: 20, // Add some padding from keyboard
+        }
+      ]}>
+        <View style={[
+          styles.container, 
+          { maxHeight: containerMaxHeight }, 
+          styles.containerTop,
+          keyboardVisible && {
+            marginBottom: 0, // Remove any bottom margin when keyboard is open
+          }
+        ]}>
         {/* Close button */}
-        <Pressable
-          onPress={onClose}
-          style={[styles.closeButton, { elevation: 3 }]}
-        >
+          <Pressable onPress={onClose} style={[styles.closeButton, { elevation: 3 }]}>
           <MaterialIcons name="close" size={22} color="#64748b" />
         </Pressable>
 
         <Text style={styles.title}>Add Sale</Text>
 
-        <ScrollView style={styles.scrollView} contentContainerStyle={{ flexGrow: 1 }}>
+          <ScrollView
+            style={[styles.scrollView, { height: scrollViewHeight }]}
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled={true}
+          >
           <TextInput
             placeholder="Search Customer"
             value={customerName}
@@ -150,13 +217,17 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
             placeholderTextColor="#888"
           />
 
-          {filteredCustomers.length > 0 && (
-            <View style={styles.customerList}>
-              <ScrollView>
+            {/* Only show customer dropdown when typing and no customer selected */}
+            {customerName && !selectedCustomer && filteredCustomers.length > 0 && (
+              <View style={[styles.customerList, { maxHeight: dropdownMaxHeight }]}>
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled={true}
+                >
                 {filteredCustomers.map(c => (
                   <Pressable
                     key={c._id}
-                    onPress={() => { setSelectedCustomer(c); setCustomerName(c.name); setCurrentCredit(c.credit); }}
+                      onPress={() => handleCustomerSelect(c)}
                     style={styles.customerListItem}
                   >
                     <Text>{c.name}</Text>
@@ -195,8 +266,11 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
 
               {/* Products */}
               <Text style={styles.productsLabel}>Products</Text>
-              <View style={styles.productsList}>
-                <ScrollView>
+                <View style={[styles.productsList, { maxHeight: dropdownMaxHeight }]}>
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled={true}
+                  >
                   {products.map(product => (
                     <Pressable
                       key={product._id}
@@ -206,6 +280,9 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
                             ? prev.filter(id => id !== product._id)
                             : [...prev, product._id]
                         );
+                          handleProductChange(selectedProducts.includes(product._id)
+                            ? selectedProducts.filter(id => id !== product._id)
+                            : [...selectedProducts, product._id]);
                       }}
                       style={[styles.productItem, selectedProducts.includes(product._id) && styles.productItemActive]}
                     >
@@ -291,6 +368,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
             </>
           )}
         </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -298,15 +376,29 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     zIndex: 50,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  keyboardAvoiding: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keyboardAvoidingTop: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'flex-start', // Default: start at top
+    paddingTop: 20,
+    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
   },
   container: {
     backgroundColor: '#fff',
@@ -318,8 +410,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     overflow: 'hidden',
-    maxHeight: '95%',
     position: 'relative',
+  },
+  containerTop: {
+    marginTop: 0
+   
   },
   closeButton: {
     position: 'absolute',
@@ -339,10 +434,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   scrollView: {
-    maxHeight: '80%',
     paddingHorizontal: 24,
     paddingBottom: 24,
     paddingTop: 8,
+    flexGrow: 1, // Allow content to grow
   },
   input: {
     marginBottom: 16,
@@ -360,7 +455,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     borderRadius: 16,
-    maxHeight: 160,
     marginBottom: 16,
   },
   customerListItem: {
@@ -383,6 +477,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
+    flex: 1,
   },
   saleTypeButtonActive: {
     backgroundColor: '#dbeafe',
@@ -395,9 +490,11 @@ const styles = StyleSheet.create({
   saleTypeTextActive: {
     fontWeight: '600',
     color: '#1d4ed8',
+    textAlign: 'center',
   },
   saleTypeTextInactive: {
     color: '#374151',
+    textAlign: 'center',
   },
   productsLabel: {
     fontSize: 14,
@@ -407,7 +504,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     borderRadius: 16,
-    maxHeight: 160,
     marginBottom: 16,
     backgroundColor: '#f9fafb',
   },
@@ -506,6 +602,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 16,
     marginTop: 8,
+    marginBottom: 20, // Add bottom margin for gap from screen bottom
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.10,
