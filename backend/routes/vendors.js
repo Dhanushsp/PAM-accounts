@@ -1,6 +1,7 @@
 import express from 'express';
 import Vendor from '../models/Vendor.js'
 import auth from '../middleware/auth.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -80,13 +81,34 @@ router.put('/:id', auth, async (req, res) => {
 // Delete vendor
 router.delete('/:id', auth, async (req, res) => {
   try {
+    const { mobile, password } = req.body;
+    
+    // Validate authentication credentials
+    if (!mobile || !password) {
+      return res.status(400).json({ message: 'Mobile and password are required for deletion' });
+    }
+
+    // Check admin credentials with bcrypt
+    const Admin = mongoose.model('Admin');
+    const admin = await Admin.findOne({ mobile });
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid credentials. Deletion denied.' });
+    }
+
+    // Compare password with bcrypt
+    const bcrypt = (await import('bcrypt')).default;
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials. Deletion denied.' });
+    }
+
     const vendor = await Vendor.findOne({ _id: req.params.id, user: req.user.id });
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
 
-    await vendor.remove();
-    res.json({ message: 'Vendor removed' });
+    await vendor.deleteOne();
+    res.json({ message: 'Vendor deleted successfully' });
   } catch (error) {
     console.error('Error deleting vendor:', error);
     res.status(500).json({ message: 'Server error' });

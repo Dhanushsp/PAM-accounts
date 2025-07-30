@@ -10,6 +10,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import AddVendorPopup from '../components/AddVendorPopup';
 import AddPurchasePopup from '../components/AddPurchasePopup';
+import DeleteAuthPopup from '../components/DeleteAuthPopup';
 
 interface Vendor {
   _id: string;
@@ -45,7 +46,11 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
   const [loading, setLoading] = useState(true);
   const [showAddVendorPopup, setShowAddVendorPopup] = useState(false);
   const [showAddPurchasePopup, setShowAddPurchasePopup] = useState(false);
+  const [showDeleteAuthPopup, setShowDeleteAuthPopup] = useState(false);
+  const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
+  const [purchaseToDelete, setPurchaseToDelete] = useState<Purchase | null>(null);
   const [filterItem, setFilterItem] = useState('all');
+  const [filterVendor, setFilterVendor] = useState('all');
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
   const insets = useSafeAreaInsets();
@@ -109,29 +114,44 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
   };
 
   const handleDeleteVendor = (vendor: Vendor) => {
-    Alert.alert(
-      'Delete Vendor',
-      `Are you sure you want to delete "${vendor.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await axios.delete(`${BACKEND_URL}/api/vendors/${vendor._id}`, {
-                headers: { Authorization: token }
-              });
-              Alert.alert('Success', 'Vendor deleted successfully');
-              fetchVendors();
-            } catch (error) {
-              console.error('Error deleting vendor:', error);
-              Alert.alert('Error', 'Failed to delete vendor');
-            }
-          }
-        }
-      ]
-    );
+    setVendorToDelete(vendor);
+    setShowDeleteAuthPopup(true);
+  };
+
+  const handleDeleteConfirm = async (mobile: string, password: string) => {
+    if (!vendorToDelete && !purchaseToDelete) return;
+
+    try {
+      if (vendorToDelete) {
+        await axios.delete(`${BACKEND_URL}/api/vendors/${vendorToDelete._id}`, {
+          headers: { Authorization: token },
+          data: { mobile, password }
+        });
+        Alert.alert('Success', 'Vendor deleted successfully');
+        setShowDeleteAuthPopup(false);
+        setVendorToDelete(null);
+        fetchVendors();
+      } else if (purchaseToDelete) {
+        await axios.delete(`${BACKEND_URL}/api/purchases/${purchaseToDelete._id}`, {
+          headers: { Authorization: token },
+          data: { mobile, password }
+        });
+        Alert.alert('Success', 'Purchase deleted successfully');
+        setShowDeleteAuthPopup(false);
+        setPurchaseToDelete(null);
+        fetchPurchases();
+      }
+    } catch (error: any) {
+      console.error('Error deleting item:', error);
+      if (error.response?.status === 401) {
+        Alert.alert('Error', 'Invalid credentials. Deletion denied.');
+      } else {
+        Alert.alert('Error', 'Failed to delete item');
+      }
+      setShowDeleteAuthPopup(false);
+      setVendorToDelete(null);
+      setPurchaseToDelete(null);
+    }
   };
 
   const getFilteredPurchases = () => {
@@ -141,12 +161,30 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
       filtered = filtered.filter(p => p.item === filterItem);
     }
 
+    if (filterVendor !== 'all') {
+      filtered = filtered.filter(p => p.vendorName === filterVendor);
+    }
+
     if (filterFromDate) {
-      filtered = filtered.filter(p => new Date(p.date) >= filterFromDate);
+      // Set time to start of day for from date
+      const fromDateStart = new Date(filterFromDate);
+      fromDateStart.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(p => {
+        const purchaseDate = new Date(p.date);
+        purchaseDate.setHours(0, 0, 0, 0);
+        return purchaseDate >= fromDateStart;
+      });
     }
 
     if (filterToDate) {
-      filtered = filtered.filter(p => new Date(p.date) <= filterToDate);
+      // Set time to end of day for to date
+      const toDateEnd = new Date(filterToDate);
+      toDateEnd.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(p => {
+        const purchaseDate = new Date(p.date);
+        purchaseDate.setHours(0, 0, 0, 0);
+        return purchaseDate <= toDateEnd;
+      });
     }
 
     return filtered;
@@ -156,6 +194,17 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
     const items = new Set<string>();
     purchases.forEach(p => items.add(p.item));
     return Array.from(items);
+  };
+
+  const getUniqueVendors = () => {
+    const vendors = new Set<string>();
+    purchases.forEach(p => vendors.add(p.vendorName));
+    return Array.from(vendors);
+  };
+
+  const handleDeletePurchase = (purchase: Purchase) => {
+    setPurchaseToDelete(purchase);
+    setShowDeleteAuthPopup(true);
   };
 
   const handleDownloadData = async () => {
@@ -343,6 +392,32 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
                 </ScrollView>
               </View>
 
+              {/* Vendor Filter */}
+              <View className="mb-3">
+                <Text className="text-sm font-medium text-gray-700 mb-2">Filter by Vendor</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                  <TouchableOpacity
+                    onPress={() => setFilterVendor('all')}
+                    className={`px-4 py-2 rounded-full mr-2 ${filterVendor === 'all' ? 'bg-blue-600' : 'bg-gray-200'}`}
+                  >
+                    <Text className={`text-sm font-medium ${filterVendor === 'all' ? 'text-white' : 'text-gray-700'}`}>
+                      All Vendors
+                    </Text>
+                  </TouchableOpacity>
+                  {getUniqueVendors().map((vendor) => (
+                    <TouchableOpacity
+                      key={vendor}
+                      onPress={() => setFilterVendor(vendor)}
+                      className={`px-4 py-2 rounded-full mr-2 ${filterVendor === vendor ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    >
+                      <Text className={`text-sm font-medium ${filterVendor === vendor ? 'text-white' : 'text-gray-700'}`}>
+                        {vendor}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
               {/* Date Range Filter */}
               <View style={styles.filterContainer}>
                 <Text style={styles.filterLabel}>Filter by Date Range:</Text>
@@ -377,9 +452,17 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
                   >
                     <View className="flex-row justify-between items-start">
                       <View className="flex-1">
-                        <Text className="text-xl font-bold text-gray-800 mb-3">
-                          {purchase.item}
-                        </Text>
+                        <View className="flex-row justify-between items-start mb-3">
+                          <Text className="text-xl font-bold text-gray-800">
+                            {purchase.item}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => handleDeletePurchase(purchase)}
+                            className="bg-red-100 rounded-full p-2"
+                          >
+                            <MaterialIcons name="delete" size={20} color="#dc2626" />
+                          </TouchableOpacity>
+                        </View>
                         <View className="space-y-2">
                           <View className="flex-row items-center">
                             <MaterialIcons name="business" size={16} color="#6b7280" />
@@ -474,6 +557,18 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
           onClose={() => setShowAddPurchasePopup(false)}
         />
       )}
+
+      {showDeleteAuthPopup && (vendorToDelete || purchaseToDelete) && (
+        <DeleteAuthPopup
+          onClose={() => setShowDeleteAuthPopup(false)}
+          onConfirm={handleDeleteConfirm}
+          title={vendorToDelete ? "Delete Vendor" : "Delete Purchase"}
+          message={vendorToDelete 
+            ? `Are you sure you want to delete "${vendorToDelete.name}"?`
+            : `Are you sure you want to delete "${purchaseToDelete?.item}" purchase?`
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -538,8 +633,8 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderRadius: 8,
     backgroundColor: 'transparent',
   },
@@ -549,7 +644,7 @@ const styles = StyleSheet.create({
   tabText: {
     textAlign: 'center',
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 14,
     color: '#4b5563', // gray-600
   },
   activeTabText: {

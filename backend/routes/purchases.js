@@ -2,6 +2,7 @@ import express from 'express';
 import Purchase from '../models/Purchase.js'
 import Vendor from '../models/Vendor.js';
 import auth from '../middleware/auth.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -128,13 +129,34 @@ router.put('/:id', auth, async (req, res) => {
 // Delete purchase
 router.delete('/:id', auth, async (req, res) => {
   try {
+    const { mobile, password } = req.body;
+    
+    // Validate authentication credentials
+    if (!mobile || !password) {
+      return res.status(400).json({ message: 'Mobile and password are required for deletion' });
+    }
+
+    // Check admin credentials with bcrypt
+    const Admin = mongoose.model('Admin');
+    const admin = await Admin.findOne({ mobile });
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid credentials. Deletion denied.' });
+    }
+
+    // Compare password with bcrypt
+    const bcrypt = (await import('bcrypt')).default;
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials. Deletion denied.' });
+    }
+
     const purchase = await Purchase.findOne({ _id: req.params.id, user: req.user.id });
     if (!purchase) {
       return res.status(404).json({ message: 'Purchase not found' });
     }
 
-    await purchase.remove();
-    res.json({ message: 'Purchase removed' });
+    await purchase.deleteOne();
+    res.json({ message: 'Purchase deleted successfully' });
   } catch (error) {
     console.error('Error deleting purchase:', error);
     res.status(500).json({ message: 'Server error' });
