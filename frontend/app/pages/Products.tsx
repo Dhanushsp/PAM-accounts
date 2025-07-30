@@ -273,33 +273,16 @@ export default function Products({ onBack, token }: ProductsProps) {
           <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
             Products
           </Text>
-          {/* Sync Button and Status */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TouchableOpacity
-              onPress={handleSync}
-              disabled={!isOnline || isSyncing}
-              style={{ backgroundColor: (!isOnline || isSyncing) ? '#e5e7eb' : '#2563eb', borderRadius: 999, padding: 8, marginRight: 4 }}
-            >
-              <MaterialIcons name="sync" size={20} color={(!isOnline || isSyncing) ? '#94a3b8' : '#fff'} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 12, color: '#64748b', minWidth: 90 }}>
-              {isSyncing ? 'Syncing...' :
-                (!hasPending && isOnline && lastSync && (Date.now() - lastSync.getTime() < 60000)) ? 'Up to date.' :
-                lastSync ? `Last synced: ${lastSync.toLocaleString()}` : 'Not synced yet.'}
-            </Text>
-          </View>
+          <TouchableOpacity
+            onPress={handleDownloadProducts}
+            className="bg-gray-100 rounded-full p-2"
+            style={{ elevation: 2 }}
+          >
+            <MaterialIcons name="download" size={22} color="#2563EB" />
+          </TouchableOpacity>
         </View>
 
         {/* Products List */}
-        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8, marginBottom: 8 }}>
-          <TouchableOpacity
-            onPress={handleDownloadProducts}
-            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f59e42', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.10, shadowRadius: 4, elevation: 2 }}
-          >
-            <MaterialIcons name="download" size={20} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Download Products</Text>
-          </TouchableOpacity>
-        </View>
         {loading ? (
           <View className="flex-1 items-center justify-center">
             <Text className="text-gray-500 text-lg">Loading products...</Text>
@@ -309,7 +292,7 @@ export default function Products({ onBack, token }: ProductsProps) {
             <Text className="text-gray-500 text-lg">No products found</Text>
           </View>
         ) : (
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false} style={{ paddingBottom: 80 }}>
             {products.map((product) => (
               <View
                 key={product._id}
@@ -358,9 +341,13 @@ export default function Products({ onBack, token }: ProductsProps) {
         <AddProductPopup
           token={token}
           onClose={() => setShowAddProductPopup(false)}
+          onProductAdded={() => {
+            setShowAddProductPopup(false);
+            fetchProducts();
+          }}
         />
       )}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 12, alignItems: 'center' }}>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 4, alignItems: 'center' }}>
         <TouchableOpacity
           style={{
             flexDirection: 'row',

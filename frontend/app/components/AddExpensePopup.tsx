@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Pressable, Modal, StyleSheet, 
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
+import DatePicker from './DatePicker';
 
 interface AddExpensePopupProps {
   token: string;
@@ -255,7 +256,7 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
             <TextInput
               style={styles.input}
               value={date}
-              onChangeText={setDate}
+                              // Date picker will be handled by DatePicker component
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#888"
             />

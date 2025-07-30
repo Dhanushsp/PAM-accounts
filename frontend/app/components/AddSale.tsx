@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, Pressable, StyleSheet, KeyboardAvoidingView, Platform, Keyboard, Dimensions, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import DatePicker from './DatePicker';
 
 interface Customer {
   _id: string;
@@ -241,12 +242,11 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
             <>
               <Text style={styles.creditText}>Current Credit: ₹{currentCredit.toFixed(2)}</Text>
 
-              <TextInput
-                value={saleDate}
-                onChangeText={setSaleDate}
-                placeholder="YYYY-MM-DD"
+              <DatePicker
+                value={new Date(saleDate)}
+                onDateChange={(date) => setSaleDate(date ? date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0])}
+                placeholder="Select Date"
                 style={styles.input}
-                placeholderTextColor="#888"
               />
 
               {/* Sale type */}

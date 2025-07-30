@@ -5,6 +5,9 @@ import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddCustomerPopup from '../components/AddCustomerPopup';
+import * as XLSX from 'xlsx';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 interface Customer {
   _id: string;
@@ -99,6 +102,23 @@ export default function Customers({ onBack, token }: CustomersProps) {
     }
   };
 
+  const handleDownloadCustomers = async () => {
+    if (!customers.length) return;
+    const data = customers.map(c => ({
+      Name: c.name,
+      Contact: c.contact,
+      Credit: c.credit,
+      'Join Date': new Date(c.joinDate).toLocaleDateString(),
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+    const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+    const uri = FileSystem.cacheDirectory + 'customers.xlsx';
+    await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
+    await Sharing.shareAsync(uri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Download Customers' });
+  };
+
   const handleDelete = (customer: Customer) => {
     Alert.alert(
       'Delete Customer',
@@ -188,7 +208,13 @@ export default function Customers({ onBack, token }: CustomersProps) {
             <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
           </Pressable>
           <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center">Customers</Text>
-          <View style={{ width: 40 }} />
+          <TouchableOpacity
+            onPress={handleDownloadCustomers}
+            className="bg-gray-100 rounded-full p-2"
+            style={{ elevation: 2 }}
+          >
+            <MaterialIcons name="download" size={22} color="#2563EB" />
+          </TouchableOpacity>
         </View>
 
         {/* Customer List */}
@@ -201,7 +227,7 @@ export default function Customers({ onBack, token }: CustomersProps) {
             <Text className="text-gray-500 text-lg">No customers found</Text>
           </View>
         ) : (
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false} style={{ paddingBottom: 80 }}>
             {customers.map((customer) => (
               <View
                 key={customer._id}
@@ -251,7 +277,7 @@ export default function Customers({ onBack, token }: CustomersProps) {
       )}
 
       {/* Add Button */}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 12, alignItems: 'center' }}>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 4, alignItems: 'center' }}>
         <TouchableOpacity
           style={{
             flexDirection: 'row',

@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import DatePicker from '../components/DatePicker';
 import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -228,18 +229,7 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
             onPress={handleDownloadData}
             style={styles.downloadButton}
           >
-            <MaterialIcons name="download" size={20} color="#f59e42" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Download Section */}
-        <View style={styles.downloadSection}>
-          <TouchableOpacity
-            onPress={handleDownloadData}
-            style={styles.downloadButtonLarge}
-          >
-            <MaterialIcons name="download" size={20} color="#fff" />
-            <Text style={styles.downloadButtonText}>Download Purchase Data</Text>
+            <MaterialIcons name="download" size={22} color="#2563EB" />
           </TouchableOpacity>
         </View>
 
@@ -354,31 +344,22 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
               </View>
 
               {/* Date Range Filter */}
-              <View className="flex-row gap-2">
-                <TouchableOpacity
-                  onPress={() => {
-                    // TODO: Implement date picker
-                    Alert.alert('Date Picker', 'Date picker functionality will be implemented');
-                  }}
-                  className="flex-1 bg-gray-100 rounded-lg p-3"
-                >
-                  <Text className="text-sm text-gray-600">From Date</Text>
-                  <Text className="text-sm font-medium text-gray-800">
-                    {filterFromDate ? filterFromDate.toLocaleDateString() : 'Select'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    // TODO: Implement date picker
-                    Alert.alert('Date Picker', 'Date picker functionality will be implemented');
-                  }}
-                  className="flex-1 bg-gray-100 rounded-lg p-3"
-                >
-                  <Text className="text-sm text-gray-600">To Date</Text>
-                  <Text className="text-sm font-medium text-gray-800">
-                    {filterToDate ? filterToDate.toLocaleDateString() : 'Select'}
-                  </Text>
-                </TouchableOpacity>
+              <View style={styles.filterContainer}>
+                <Text style={styles.filterLabel}>Filter by Date Range:</Text>
+                <View style={styles.dateFilterRow}>
+                  <DatePicker
+                    value={filterFromDate}
+                    onDateChange={setFilterFromDate}
+                    placeholder="From Date"
+                    style={{ flex: 1, marginRight: 8 }}
+                  />
+                  <DatePicker
+                    value={filterToDate}
+                    onDateChange={setFilterToDate}
+                    placeholder="To Date"
+                    style={{ flex: 1, marginLeft: 8 }}
+                  />
+                </View>
               </View>
             </View>
 
@@ -688,28 +669,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     elevation: 2,
   },
-  downloadSection: {
-    marginTop: 20,
-    alignItems: 'center',
+  filterContainer: {
+    marginTop: 16,
   },
-  downloadButtonLarge: {
+  filterLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151', // gray-700
+    marginBottom: 8,
+  },
+  dateFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563eb', // blue-600
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  downloadButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 16,
-    marginLeft: 8,
+    justifyContent: 'space-between',
   },
 }); 

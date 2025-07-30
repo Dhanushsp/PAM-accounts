@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'; 
 import { View, Text, TextInput, ScrollView, TouchableOpacity, BackHandler, Alert, Pressable } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -23,6 +23,9 @@ import { getToken } from '../lib/auth';
 import NetInfo from '@react-native-community/netinfo';
 import Purchase from './Purchase';
 import PersonalFinance from './PersonalFinance';
+import Sales from './Sales';
+import DatePicker from '../components/DatePicker';
+import { StyleSheet } from 'react-native';
 
 interface Customer {
   _id: string;
@@ -48,6 +51,8 @@ export default function Home({ token, onLogout }: HomeProps) {
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
   const [showExpensePopup, setShowExpensePopup] = useState(false);
+  const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
+  const [filterToDate, setFilterToDate] = useState<Date | null>(null);
   const insets = useSafeAreaInsets();
 
   const fetchCustomers = async () => {
@@ -187,6 +192,24 @@ export default function Home({ token, onLogout }: HomeProps) {
     return null;
   };
 
+  const formatLastSyncTime = (lastSync: Date | null) => {
+    if (!lastSync) return 'Not synced yet';
+    
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - lastSync.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+    
+    return lastSync.toLocaleDateString();
+  };
+
   // Helper to format customer data for Excel
   const generateExcelData = () => {
     const sheets: { [key: string]: any[][] } = {};
@@ -227,19 +250,275 @@ export default function Home({ token, onLogout }: HomeProps) {
     return sheets;
   };
 
-  // Download handler
-  const handleDownload = async () => {
+  const handleUniversalDownload = async () => {
     try {
-      const sheets = generateExcelData();
       const wb = XLSX.utils.book_new();
-      Object.entries(sheets).forEach(([sheetName, data]) => {
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31)); // Excel sheet name limit
-      });
+      
+      // ===== CUSTOMERS SECTION =====
+      try {
+        const customerSheets = generateExcelData();
+        Object.entries(customerSheets).forEach(([sheetName, data]) => {
+          // Add a header row to clearly identify this as customer data
+          const headerRow = [['CUSTOMER DATA - ' + sheetName.toUpperCase()]];
+          const emptyRow = [['']];
+          const columnHeaders = [['Customer Name', 'Contact', 'Credit', 'Join Date', 'Last Purchase', 'Total Sales', 'Payment Method', 'Amount Received', 'Updated Credit']];
+          
+          const organizedData = [...headerRow, emptyRow, columnHeaders, ...data];
+          const ws = XLSX.utils.aoa_to_sheet(organizedData);
+          
+          // Style the header row
+          ws['A1'] = { v: 'CUSTOMER DATA - ' + sheetName.toUpperCase(), s: { font: { bold: true, color: { rgb: "2563EB" } } } };
+          
+          XLSX.utils.book_append_sheet(wb, ws, 'Customers_' + sheetName.substring(0, 25));
+        });
+      } catch (error) {
+        console.error('Error fetching customers:', error);
+      }
+
+      // ===== PRODUCTS SECTION =====
+      try {
+        const productsResponse = await axios.get(`${API_BASE_URL}/api/products`, {
+          headers: { Authorization: token }
+        });
+        const productsData = productsResponse.data.map((p: any) => ({
+          'Product Name': p.productName,
+          'Price per Pack (₹)': p.pricePerPack,
+          'Kgs per Pack': p.kgsPerPack,
+          'Price per Kg (₹)': p.pricePerKg,
+        }));
+        
+        // Add header information
+        const productsHeader = [['PRODUCTS INVENTORY']];
+        const productsEmptyRow = [['']];
+        const productsSummary = [
+          ['Total Products:', productsData.length],
+          ['Total Value:', `₹${productsData.reduce((sum: number, p: any) => sum + (p['Price per Pack (₹)'] || 0), 0).toLocaleString()}`]
+        ];
+        
+        const organizedProductsData = [...productsHeader, productsEmptyRow, productsSummary, productsEmptyRow, ...productsData.map(p => Object.values(p))];
+        const productsWs = XLSX.utils.aoa_to_sheet(organizedProductsData);
+        
+        // Style the header
+        productsWs['A1'] = { v: 'PRODUCTS INVENTORY', s: { font: { bold: true, color: { rgb: "059669" } } } };
+        
+        XLSX.utils.book_append_sheet(wb, productsWs, 'Products');
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      }
+
+      // ===== EXPENSES SECTION =====
+      try {
+        const expensesResponse = await axios.get(`${API_BASE_URL}/api/expenses`, {
+          headers: { Authorization: token }
+        });
+        const expensesData = expensesResponse.data.map((e: any) => ({
+          'Date': new Date(e.date).toLocaleDateString(),
+          'Category': e.category,
+          'Subcategory': e.subcategory,
+          'Amount (₹)': e.amount,
+          'Description': e.description || '',
+        }));
+        
+        // Group expenses by category for summary
+        const categorySummary = expensesData.reduce((acc: any, expense: any) => {
+          const category = expense['Category'];
+          if (!acc[category]) acc[category] = 0;
+          acc[category] += expense['Amount (₹)'];
+          return acc;
+        }, {});
+        
+        const expensesHeader = [['EXPENSES TRACKING']];
+        const expensesEmptyRow = [['']];
+        const expensesSummary = [
+          ['Total Expenses:', `₹${expensesData.reduce((sum: number, e: any) => sum + e['Amount (₹)'], 0).toLocaleString()}`],
+          ['Total Entries:', expensesData.length]
+        ];
+        
+        // Add category breakdown
+        const categoryBreakdown = [['Category Breakdown:']];
+        Object.entries(categorySummary).forEach(([category, amount]) => {
+          categoryBreakdown.push([category, `₹${amount.toLocaleString()}`]);
+        });
+        
+        const organizedExpensesData = [
+          ...expensesHeader, 
+          expensesEmptyRow, 
+          expensesSummary, 
+          expensesEmptyRow,
+          ...categoryBreakdown,
+          expensesEmptyRow,
+          ...expensesData.map(e => Object.values(e))
+        ];
+        const expensesWs = XLSX.utils.aoa_to_sheet(organizedExpensesData);
+        
+        // Style the header
+        expensesWs['A1'] = { v: 'EXPENSES TRACKING', s: { font: { bold: true, color: { rgb: "DC2626" } } } };
+        
+        XLSX.utils.book_append_sheet(wb, expensesWs, 'Expenses');
+      } catch (error) {
+        console.error('Error fetching expenses:', error);
+      }
+
+      // ===== PERSONAL FINANCE SECTION =====
+      try {
+        const [savingsResponse, incomeResponse, payablesResponse, moneyLentResponse] = await Promise.all([
+          axios.get(`${API_BASE_URL}/api/savings-types`, { headers: { Authorization: token } }),
+          axios.get(`${API_BASE_URL}/api/income-types`, { headers: { Authorization: token } }),
+          axios.get(`${API_BASE_URL}/api/payable-types`, { headers: { Authorization: token } }),
+          axios.get(`${API_BASE_URL}/api/money-lent-types`, { headers: { Authorization: token } })
+        ]);
+
+        // Create a comprehensive Personal Finance sheet
+        const personalFinanceData = [];
+        
+        // Add header
+        personalFinanceData.push(['PERSONAL FINANCE OVERVIEW']);
+        personalFinanceData.push(['']);
+        
+        // Savings Section
+        if (savingsResponse.data.length > 0) {
+          personalFinanceData.push(['SAVINGS ACCOUNTS']);
+          personalFinanceData.push(['Type', 'Total Amount (₹)', 'Entries Count']);
+          savingsResponse.data.forEach((s: any) => {
+            personalFinanceData.push([s.name, s.totalAmount, s.entries?.length || 0]);
+          });
+          personalFinanceData.push(['Total Savings:', savingsResponse.data.reduce((sum: number, s: any) => sum + s.totalAmount, 0)]);
+          personalFinanceData.push(['']);
+        }
+
+        // Income Section
+        if (incomeResponse.data.length > 0) {
+          personalFinanceData.push(['INCOME SOURCES']);
+          personalFinanceData.push(['Type', 'Total Amount (₹)', 'Entries Count']);
+          incomeResponse.data.forEach((i: any) => {
+            personalFinanceData.push([i.name, i.totalAmount, i.entries?.length || 0]);
+          });
+          personalFinanceData.push(['Total Income:', incomeResponse.data.reduce((sum: number, i: any) => sum + i.totalAmount, 0)]);
+          personalFinanceData.push(['']);
+        }
+
+        // Payables Section
+        if (payablesResponse.data.length > 0) {
+          personalFinanceData.push(['PAYABLES']);
+          personalFinanceData.push(['Type', 'Total Amount (₹)', 'Entries Count']);
+          payablesResponse.data.forEach((p: any) => {
+            personalFinanceData.push([p.name, p.totalAmount, p.entries?.length || 0]);
+          });
+          personalFinanceData.push(['Total Payables:', payablesResponse.data.reduce((sum: number, p: any) => sum + p.totalAmount, 0)]);
+          personalFinanceData.push(['']);
+        }
+
+        // Money Lent Section
+        if (moneyLentResponse.data.length > 0) {
+          personalFinanceData.push(['MONEY LENT']);
+          personalFinanceData.push(['Type', 'Total Amount (₹)', 'Entries Count']);
+          moneyLentResponse.data.forEach((m: any) => {
+            personalFinanceData.push([m.name, m.totalAmount, m.entries?.length || 0]);
+          });
+          personalFinanceData.push(['Total Money Lent:', moneyLentResponse.data.reduce((sum: number, m: any) => sum + m.totalAmount, 0)]);
+        }
+
+        const personalFinanceWs = XLSX.utils.aoa_to_sheet(personalFinanceData);
+        
+        // Style the main header
+        personalFinanceWs['A1'] = { v: 'PERSONAL FINANCE OVERVIEW', s: { font: { bold: true, color: { rgb: "7C3AED" } } } };
+        
+        XLSX.utils.book_append_sheet(wb, personalFinanceWs, 'Personal Finance');
+      } catch (error) {
+        console.error('Error fetching personal finance data:', error);
+      }
+
+      // ===== PURCHASE MANAGEMENT SECTION =====
+      try {
+        const [vendorsResponse, purchasesResponse] = await Promise.all([
+          axios.get(`${API_BASE_URL}/api/vendors`, { headers: { Authorization: token } }),
+          axios.get(`${API_BASE_URL}/api/purchases`, { headers: { Authorization: token } })
+        ]);
+
+        // Create a comprehensive Purchase Management sheet
+        const purchaseData = [];
+        
+        // Add header
+        purchaseData.push(['PURCHASE MANAGEMENT']);
+        purchaseData.push(['']);
+        
+        // Vendors Section
+        if (vendorsResponse.data.length > 0) {
+          purchaseData.push(['VENDORS']);
+          purchaseData.push(['Name', 'Contact', 'Credit (₹)', 'Items']);
+          vendorsResponse.data.forEach((v: any) => {
+            purchaseData.push([v.name, v.contact, v.credit, v.items?.join(', ') || '']);
+          });
+          purchaseData.push(['Total Vendors:', vendorsResponse.data.length]);
+          purchaseData.push(['Total Vendor Credit:', vendorsResponse.data.reduce((sum: number, v: any) => sum + v.credit, 0)]);
+          purchaseData.push(['']);
+        }
+
+        // Purchases Section
+        if (purchasesResponse.data.length > 0) {
+          purchaseData.push(['PURCHASE TRANSACTIONS']);
+          purchaseData.push(['Date', 'Item', 'Vendor', 'Quantity', 'Unit', 'Price per Unit (₹)', 'Total Price (₹)', 'Amount Paid (₹)', 'Updated Credit (₹)']);
+          purchasesResponse.data.forEach((p: any) => {
+            purchaseData.push([
+              new Date(p.date).toLocaleDateString(),
+              p.item,
+              p.vendorName,
+              p.quantity,
+              p.unit,
+              p.pricePerUnit,
+              p.totalPrice,
+              p.amountPaid,
+              p.updatedCredit
+            ]);
+          });
+          purchaseData.push(['Total Purchases:', purchasesResponse.data.length]);
+          purchaseData.push(['Total Purchase Value:', purchasesResponse.data.reduce((sum: number, p: any) => sum + p.totalPrice, 0)]);
+          purchaseData.push(['Total Amount Paid:', purchasesResponse.data.reduce((sum: number, p: any) => sum + p.amountPaid, 0)]);
+        }
+
+        const purchaseWs = XLSX.utils.aoa_to_sheet(purchaseData);
+        
+        // Style the main header
+        purchaseWs['A1'] = { v: 'PURCHASE MANAGEMENT', s: { font: { bold: true, color: { rgb: "F59E0B" } } } };
+        
+        XLSX.utils.book_append_sheet(wb, purchaseWs, 'Purchase Management');
+      } catch (error) {
+        console.error('Error fetching purchase data:', error);
+      }
+
+      // ===== SUMMARY SHEET =====
+      try {
+        const summaryData = [
+          ['PAM ACCOUNTS - COMPLETE DATA SUMMARY'],
+          [''],
+          ['Generated on:', new Date().toLocaleString()],
+          [''],
+          ['DATA CATEGORIES:'],
+          ['1. Customers - Customer information and sales history'],
+          ['2. Products - Product inventory and pricing'],
+          ['3. Expenses - Expense tracking and categorization'],
+          ['4. Personal Finance - Savings, Income, Payables, and Money Lent'],
+          ['5. Purchase Management - Vendors and purchase transactions'],
+          [''],
+          ['TOTAL SHEETS:', wb.SheetNames.length],
+          [''],
+          ['Note: Each sheet contains detailed data with proper categorization and summaries.']
+        ];
+
+        const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+        
+        // Style the main header
+        summaryWs['A1'] = { v: 'PAM ACCOUNTS - COMPLETE DATA SUMMARY', s: { font: { bold: true, color: { rgb: "1F2937" } } } };
+        
+        XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+      } catch (error) {
+        console.error('Error creating summary sheet:', error);
+      }
+
       const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-      const fileUri = FileSystem.cacheDirectory + 'customers.xlsx';
+      const fileUri = FileSystem.cacheDirectory + 'pam_accounts_complete_data.xlsx';
       await FileSystem.writeAsStringAsync(fileUri, wbout, { encoding: FileSystem.EncodingType.Base64 });
-      await Sharing.shareAsync(fileUri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Download Customers Data' });
+      await Sharing.shareAsync(fileUri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Download Complete PAM Accounts Data' });
     } catch (err) {
       Alert.alert('Error', 'Failed to generate or share the file.');
       console.error(err);
@@ -357,9 +636,13 @@ export default function Home({ token, onLogout }: HomeProps) {
     return <PersonalFinance token={token} onBack={() => setCurrentPage('home')} />;
   }
 
+  if (currentPage === 'sales') {
+    return <Sales token={token} onBack={() => setCurrentPage('home')} />;
+  }
+
   return (
-    <SafeAreaView className="flex-1 bg-blue-50">
-      <View className="flex-1 p-3">
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
       {/* Modernized Top Navbar */}
       <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-4 mt-1" style={{ elevation: 3 }}>
         <Pressable
@@ -408,35 +691,58 @@ export default function Home({ token, onLogout }: HomeProps) {
             </TouchableOpacity>
           );
         })}
+        {/* Sync Button */}
+        <TouchableOpacity
+          onPress={handleSync}
+          disabled={!isOnline || isSyncing}
+          style={{ backgroundColor: (!isOnline || isSyncing) ? '#e5e7eb' : '#2563eb', borderRadius: 999, padding: 10 }}
+        >
+          <MaterialIcons name="sync" size={20} color={(!isOnline || isSyncing) ? '#94a3b8' : '#fff'} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Sync Status */}
+      <View className="flex-row justify-center mb-3">
+        <Text style={{ fontSize: 12, color: '#64748b' }}>
+          {isSyncing ? 'Syncing...' :
+            (!hasPending && isOnline && lastSync && (Date.now() - lastSync.getTime() < 60000)) ? 'Up to date' :
+            formatLastSyncTime(lastSync)}
+        </Text>
+      </View>
+
+      {/* Date Filters */}
+      <View style={styles.filterContainer}>
+        <Text style={styles.filterLabel}>Filter by Date Range:</Text>
+        <View style={styles.dateFilterRow}>
+          <DatePicker
+            value={filterFromDate}
+            onDateChange={setFilterFromDate}
+            placeholder="From Date"
+            style={{ flex: 1, marginRight: 8 }}
+          />
+          <DatePicker
+            value={filterToDate}
+            onDateChange={setFilterToDate}
+            placeholder="To Date"
+            style={{ flex: 1, marginLeft: 8 }}
+          />
+        </View>
       </View>
 
       {/* Download and Sync Row */}
       <View className="flex-row items-center justify-center gap-3 mb-3">
-      <TouchableOpacity
-        onPress={handleDownload}
-          className="flex-row items-center justify-center bg-yellow-500 py-3 px-4 rounded-full shadow-md"
-        style={{ elevation: 2 }}
-      >
-        <FontAwesome5 name="download" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base ml-2">Download Sales</Text>
-        </TouchableOpacity>
-        {/* Sync Button and Status */}
         <TouchableOpacity
-          onPress={handleSync}
-          disabled={!isOnline || isSyncing}
-          style={{ backgroundColor: (!isOnline || isSyncing) ? '#e5e7eb' : '#2563eb', borderRadius: 999, padding: 10, marginLeft: 8, marginRight: 4 }}
+          onPress={handleUniversalDownload}
+          className="flex-row items-center justify-center bg-blue-600 py-3 px-4 rounded-full shadow-md"
+          style={{ elevation: 2 }}
         >
-          <MaterialIcons name="sync" size={20} color={(!isOnline || isSyncing) ? '#94a3b8' : '#fff'} />
-      </TouchableOpacity>
-        <Text style={{ fontSize: 12, color: '#64748b', minWidth: 90 }}>
-          {isSyncing ? 'Syncing...' :
-            (!hasPending && isOnline && lastSync && (Date.now() - lastSync.getTime() < 60000)) ? 'Up to date.' :
-            lastSync ? `Last synced: ${lastSync.toLocaleString()}` : 'Not synced yet.'}
-        </Text>
+          <FontAwesome5 name="download" size={16} color="#fff" />
+          <Text className="text-white text-center font-bold text-base ml-2">All Data</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Customer list */}
-      <ScrollView className="flex-1 mb-4">
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {customers.length === 0 && (
           <Text className="text-center text-gray-400 mt-5">No customers found.</Text>
         )}
@@ -469,24 +775,25 @@ export default function Home({ token, onLogout }: HomeProps) {
           </TouchableOpacity>
         ))}
       </ScrollView>
+      </View>
 
-      {/* Modernized Bottom Action Buttons */}
-      <View className="absolute bottom-0 left-0 right-0 px-4 pb-2 pt-2 flex-row gap-3 justify-center items-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', borderTopWidth: 1, borderColor: '#dbeafe', paddingBottom: insets.bottom + 6, elevation: 8 }}>
+      {/* Fixed Bottom Action Buttons */}
+      <View style={[styles.bottomContainer, { paddingBottom: insets.bottom }]}>
         <TouchableOpacity
           onPress={() => setShowSalesPopup(true)}
-          className="flex-1 flex-row items-center justify-center bg-green-600 py-3 rounded-full shadow-md gap-2"
-          style={{ elevation: 2, maxWidth: 200 }}
+          style={styles.bottomButton}
+          className="bg-green-600"
         >
           <FontAwesome5 name="plus" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base">Sale</Text>
+          <Text className="text-white text-center font-bold text-base ml-2">Sale</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowExpensePopup(true)}
-          className="flex-1 flex-row items-center justify-center bg-red-600 py-3 rounded-full shadow-md gap-2"
-          style={{ elevation: 2, maxWidth: 200 }}
+          style={styles.bottomButton}
+          className="bg-red-600"
         >
           <FontAwesome5 name="money-bill-wave" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base">+ Expense</Text>
+          <Text className="text-white text-center font-bold text-base ml-2">+ Expense</Text>
         </TouchableOpacity>
       </View>
 
@@ -503,6 +810,10 @@ export default function Home({ token, onLogout }: HomeProps) {
         <AddProductPopup
           token={token}
           onClose={() => setShowProductPopup(false)}
+          onProductAdded={() => {
+            setShowProductPopup(false);
+            // Refresh products if needed
+          }}
         />
       )}
       
@@ -538,7 +849,83 @@ export default function Home({ token, onLogout }: HomeProps) {
         onLogout={onLogout}
         onNavigate={handleNavigation}
       />
-      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#EBF8FF', // equivalent to bg-blue-50
+  },
+  content: {
+    flex: 1,
+    padding: 12,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    borderTopWidth: 1,
+    borderTopColor: '#dbeafe',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 10,
+    gap: 12,
+  },
+  bottomButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    maxWidth: 160,
+  },
+  filterContainer: {
+    marginBottom: 16,
+    paddingHorizontal: 10,
+  },
+  filterLabel: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 8,
+    fontWeight: 'bold',
+  },
+  dateFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+  },
+});

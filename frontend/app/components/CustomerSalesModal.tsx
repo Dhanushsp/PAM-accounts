@@ -60,53 +60,72 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
 
         <ScrollView style={styles.salesScroll} contentContainerStyle={{ paddingBottom: 8 }}>
         {customer.sales && customer.sales.length > 0 ? (
-          customer.sales
-            .sort((a: Sale, b: Sale) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .map((sale: Sale) => (
-                <View key={sale._id} style={styles.saleBox}>
-                  <View style={styles.saleBoxHeader}>
-                    <Text style={styles.saleDate}>
-                  {sale.date
-                    ? new Date(sale.date).toLocaleDateString('en-IN', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                            minute: '2-digit',
-                      })
-                        : 'Date not available'}
-                    </Text>
-                    {sale.saleType && (
-                      <View style={styles.saleTypeBadge}>
-                        <Text style={styles.saleTypeBadgeText}>{sale.saleType.toUpperCase()}</Text>
+          (() => {
+            // Group sales by date
+            const salesByDate = customer.sales.reduce((groups: { [key: string]: Sale[] }, sale: Sale) => {
+              const dateKey = new Date(sale.date).toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              });
+              if (!groups[dateKey]) groups[dateKey] = [];
+              groups[dateKey].push(sale);
+              return groups;
+            }, {});
+
+            // Sort dates in descending order and render
+            return Object.entries(salesByDate)
+              .sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime())
+              .map(([dateKey, sales]) => (
+                <View key={dateKey} style={styles.dateGroup}>
+                  <Text style={styles.dateLabel}>{dateKey}</Text>
+                  {sales
+                    .sort((a: Sale, b: Sale) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map((sale: Sale) => (
+                      <View key={sale._id} style={styles.saleBox}>
+                        <View style={styles.saleBoxHeader}>
+                          <Text style={styles.saleTime}>
+                            {sale.date
+                              ? new Date(sale.date).toLocaleTimeString('en-IN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : 'Time not available'}
+                          </Text>
+                          {sale.saleType && (
+                            <View style={styles.saleTypeBadge}>
+                              <Text style={styles.saleTypeBadgeText}>{sale.saleType.toUpperCase()}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.productsList}>
+                          {sale.products.map((product: Product) => (
+                            <Text key={product._id} style={styles.productText}>
+                              • {product.productName} <Text style={styles.productQty}>x{product.quantity}</Text> <Text style={styles.productPrice}>₹{product.price}</Text>
+                            </Text>
+                          ))}
+                        </View>
+                        <View style={styles.saleBoxFooter}>
+                          <Text style={styles.saleTotal}>
+                            <FontAwesome name="rupee" size={12} color="#64748b" /> {sale.totalPrice}  <Text style={styles.saleAmountReceived}>/ {sale.amountReceived}</Text>
+                          </Text>
+                          <View style={styles.paymentRow}>
+                            <MaterialIcons name="payment" size={14} color="#64748b" />
+                            <Text style={styles.paymentMethod}>{sale.paymentMethod}</Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => onEditSale(sale)}
+                          style={styles.editButton}
+                        >
+                          <FontAwesome name="edit" size={14} color="#2563EB" />
+                          <Text style={styles.editButtonText}>Edit</Text>
+                        </TouchableOpacity>
                       </View>
-                    )}
-                  </View>
-                  <View style={styles.productsList}>
-                  {sale.products.map((product: Product) => (
-                      <Text key={product._id} style={styles.productText}>
-                        • {product.productName} <Text style={styles.productQty}>x{product.quantity}</Text> <Text style={styles.productPrice}>₹{product.price}</Text>
-                    </Text>
-                  ))}
+                    ))}
                 </View>
-                  <View style={styles.saleBoxFooter}>
-                    <Text style={styles.saleTotal}>
-                      <FontAwesome name="rupee" size={12} color="#64748b" /> {sale.totalPrice}  <Text style={styles.saleAmountReceived}>/ {sale.amountReceived}</Text>
-                </Text>
-                    <View style={styles.paymentRow}>
-                      <MaterialIcons name="payment" size={14} color="#64748b" />
-                      <Text style={styles.paymentMethod}>{sale.paymentMethod}</Text>
-                    </View>
-                  </View>
-                <TouchableOpacity
-                  onPress={() => onEditSale(sale)}
-                  style={styles.editButton}
-                >
-                  <FontAwesome name="edit" size={14} color="#2563EB" />
-                    <Text style={styles.editButtonText}>Edit</Text>
-                </TouchableOpacity>
-              </View>
-            ))
+              ));
+          })()
         ) : (
             <Text style={styles.noSalesText}>No sales history available.</Text>
         )}
@@ -291,5 +310,19 @@ const styles = StyleSheet.create({
     color: '#1d4ed8',
     fontWeight: 'bold',
     fontSize: 18,
+  },
+  dateGroup: {
+    marginBottom: 16,
+  },
+  dateLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1d4ed8',
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+  saleTime: {
+    fontSize: 12,
+    color: '#9ca3af',
   },
 });

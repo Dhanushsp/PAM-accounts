@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddPayablesPopup from './AddPayablesPopup';
+import DatePicker from '../DatePicker';
 
 interface PayableType {
   _id: string;
@@ -107,30 +108,18 @@ export default function PayablesTab({ token }: PayablesTabProps) {
         <View style={styles.filterContainer}>
           <Text style={styles.filterLabel}>Filter by Date Range:</Text>
           <View style={styles.dateFilterRow}>
-            <TouchableOpacity
-              onPress={() => {
-                // TODO: Implement date picker
-                Alert.alert('Date Picker', 'Date picker functionality will be implemented');
-              }}
-              style={styles.dateFilterButton}
-            >
-              <Text style={styles.dateFilterLabel}>From Date</Text>
-              <Text style={styles.dateFilterValue}>
-                {filterFromDate ? filterFromDate.toLocaleDateString() : 'Select'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                // TODO: Implement date picker
-                Alert.alert('Date Picker', 'Date picker functionality will be implemented');
-              }}
-              style={styles.dateFilterButton}
-            >
-              <Text style={styles.dateFilterLabel}>To Date</Text>
-              <Text style={styles.dateFilterValue}>
-                {filterToDate ? filterToDate.toLocaleDateString() : 'Select'}
-              </Text>
-            </TouchableOpacity>
+            <DatePicker
+              value={filterFromDate}
+              onDateChange={setFilterFromDate}
+              placeholder="From Date"
+              style={{ flex: 1, marginRight: 6 }}
+            />
+            <DatePicker
+              value={filterToDate}
+              onDateChange={setFilterToDate}
+              placeholder="To Date"
+              style={{ flex: 1, marginLeft: 6 }}
+            />
           </View>
         </View>
 

@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, Keyboard, Dimensions, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  Pressable, 
+  StyleSheet, 
+  Alert, 
+  Keyboard, 
+  Dimensions, 
+  ScrollView,
+  Platform
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import { KeyboardAvoidingView, Platform } from 'react-native';
 
 interface MoneyLentType {
   _id: string;
@@ -14,21 +24,52 @@ interface MoneyLentType {
 interface AddMoneyLentPopupProps {
   token: string;
   onClose: () => void;
+  onMoneyLentAdded?: () => void;
 }
 
-export default function AddMoneyLentPopup({ token, onClose }: AddMoneyLentPopupProps) {
-  const [moneyLentTypes, setMoneyLentTypes] = useState<MoneyLentType[]>([]);
-  const [form, setForm] = useState({
-    typeId: '',
-    date: new Date().toISOString().split('T')[0],
-    amount: '',
-    newTypeName: ''
-  });
-  const [showNewTypeInput, setShowNewTypeInput] = useState(false);
+export default function AddMoneyLentPopup({ token, onClose, onMoneyLentAdded }: AddMoneyLentPopupProps) {
+  const [selectedType, setSelectedType] = useState<any>(null);
+  const [newType, setNewType] = useState('');
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [moneyLentTypes, setMoneyLentTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedType, setSelectedType] = useState<MoneyLentType | null>(null);
+  const [showNewTypeInput, setShowNewTypeInput] = useState(false);
+
+  // Keyboard state
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
+
+  useEffect(() => {
+    // Set initial screen height
+    setScreenHeight(Dimensions.get('window').height);
+
+    // Add keyboard event listeners
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setKeyboardVisible(true);
+      }
+    );
+
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        setKeyboardVisible(false);
+      }
+    );
+
+    // Cleanup listeners
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
 
   useEffect(() => {
     fetchMoneyLentTypes();
@@ -42,205 +83,251 @@ export default function AddMoneyLentPopup({ token, onClose }: AddMoneyLentPopupP
       setMoneyLentTypes(response.data);
     } catch (error) {
       console.error('Error fetching money lent types:', error);
+      Alert.alert('Error', 'Failed to fetch money lent types');
     }
   };
 
-  const handleTypeSelect = (type: MoneyLentType) => {
-    setSelectedType(type);
-    setForm(prev => ({ ...prev, typeId: type._id }));
-    setShowNewTypeInput(false);
-  };
-
-  const handleAddNewType = () => {
-    if (!form.newTypeName.trim()) {
+  const handleAddNewType = async () => {
+    if (!newType.trim()) {
       Alert.alert('Error', 'Please enter a type name');
       return;
     }
 
-    setShowNewTypeInput(false);
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/money-lent-types`, {
+        name: newType.trim()
+      }, {
+        headers: { Authorization: token }
+      });
+
+      const createdType = response.data;
+      setMoneyLentTypes(prev => [...prev, createdType]);
+      setSelectedType(createdType);
+      setNewType('');
+      setShowNewTypeInput(false);
+    } catch (error: any) {
+      console.error('Error adding money lent type:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to add money lent type');
+    }
   };
 
   const handleSubmit = async () => {
-    if (!form.typeId && !form.newTypeName.trim()) {
-      Alert.alert('Error', 'Please select a money lent type or create a new one');
+    if (!selectedType) {
+      Alert.alert('Error', 'Please select a money lent type');
       return;
     }
-
-    if (!form.amount || parseFloat(form.amount) <= 0) {
+    if (!amount || parseFloat(amount) <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
 
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      let typeId = form.typeId;
-      
-      // If creating a new type
-      if (!typeId && form.newTypeName.trim()) {
-        const newTypeResponse = await axios.post(`${BACKEND_URL}/api/money-lent-types`, {
-          name: form.newTypeName.trim()
-        }, {
-          headers: { 
-            'Content-Type': 'application/json',
-            Authorization: token 
-          }
-        });
-        typeId = newTypeResponse.data._id;
-      }
-
-      // Add money lent entry
       await axios.post(`${BACKEND_URL}/api/money-lent-entries`, {
-        typeId,
-        date: form.date,
-        amount: parseFloat(form.amount)
+        typeId: selectedType._id,
+        amount: parseFloat(amount),
+        date: new Date(date)
       }, {
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: token 
-        }
+        headers: { Authorization: token }
       });
-      
-      Alert.alert('Success', 'Money lent added successfully');
+
+      Alert.alert('Success', 'Money lent entry added successfully!');
+      onMoneyLentAdded?.();
       onClose();
-    } catch (error) {
-      console.error('Error adding money lent:', error);
-      Alert.alert('Error', 'Failed to add money lent');
+    } catch (error: any) {
+      console.error('Error adding money lent entry:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to add money lent entry');
     } finally {
       setLoading(false);
     }
   };
 
   const getCurrentTotal = () => {
-    if (selectedType) {
-      return selectedType.totalAmount;
-    }
-    return 0;
+    return selectedType ? selectedType.totalAmount : 0;
   };
 
   const getNewTotal = () => {
     const currentTotal = getCurrentTotal();
-    const newAmount = parseFloat(form.amount) || 0;
+    const newAmount = parseFloat(amount) || 0;
     return currentTotal + newAmount;
   };
 
+  // Calculate dynamic heights based on keyboard state
+  const availableHeight = screenHeight - keyboardHeight - 60; // Increased margin to ensure button visibility
+  const containerMaxHeight = keyboardVisible 
+    ? Math.min(availableHeight - 60, screenHeight * 0.5) // Reduced to 50% max when keyboard is open
+    : screenHeight * 0.95;
+  const scrollViewHeight = keyboardVisible 
+    ? availableHeight - 200 // Much more space for header, padding, and button
+    : '80%';
+  const dropdownMaxHeight = keyboardVisible ? 60 : 160;
+
   return (
     <View style={styles.overlay}>
-      <View style={styles.modalContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Add Money Lent</Text>
-          <Pressable
-            onPress={onClose}
-            style={styles.closeButton}
-          >
-            <MaterialIcons name="close" size={18} color="#64748b" />
+      <View style={[
+        styles.keyboardAvoidingTop,
+        keyboardVisible && {
+          justifyContent: 'flex-start', // When keyboard is open, align to top of available space
+          paddingTop: 20, // Keep some padding from top
+        }
+      ]}>
+        <View style={[
+          styles.container, 
+          { maxHeight: containerMaxHeight }, 
+          styles.containerTop,
+          keyboardVisible && {
+            marginBottom: 0, // Remove any bottom margin when keyboard is open
+            marginTop: 0, // Keep at top when keyboard is open
+          }
+        ]}>
+          {/* Close button */}
+          <Pressable onPress={onClose} style={[styles.closeButton, { elevation: 3 }]}>
+            <MaterialIcons name="close" size={22} color="#64748b" />
           </Pressable>
-        </View>
 
-        {/* Form */}
-        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-          <View style={styles.formContent}>
+          <Text style={styles.title}>Add Money Lent</Text>
+
+          <ScrollView
+            style={[styles.scrollView, { height: scrollViewHeight }]}
+            contentContainerStyle={[
+              { flexGrow: 1 },
+              keyboardVisible && { paddingBottom: 20 } // Extra padding when keyboard is open
+            ]}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Money Lent Type Selection */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Money Lent Type *</Text>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Money Lent Type</Text>
               
               {!showNewTypeInput ? (
-                <View>
-                  {/* Existing Types */}
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typesScrollView}>
-                    {moneyLentTypes.map((type) => (
-                      <TouchableOpacity
-                        key={type._id}
-                        onPress={() => handleTypeSelect(type)}
-                        style={[styles.typeButton, form.typeId === type._id && styles.selectedTypeButton]}
-                      >
-                        <Text style={[styles.typeButtonText, form.typeId === type._id && styles.selectedTypeButtonText]}>
-                          {type.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                <View style={styles.moneyLentTypesSection}>
+                  <View style={styles.moneyLentTypesHeader}>
+                    <Text style={styles.moneyLentTypesLabel}>Select Money Lent Type:</Text>
+                    <TouchableOpacity
+                      onPress={() => setShowNewTypeInput(true)}
+                      style={styles.addTypeButton}
+                    >
+                      <MaterialIcons name="add" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
                   
-                  {/* Add New Type Button */}
-                  <TouchableOpacity
-                    onPress={() => setShowNewTypeInput(true)}
-                    style={styles.addTypeButton}
-                  >
-                    <MaterialIcons name="add" size={18} color="#2563eb" />
-                    <Text style={styles.addTypeButtonText}>Add New Type</Text>
-                  </TouchableOpacity>
+                  {/* Horizontal Money Lent Type Buttons */}
+                  {moneyLentTypes.length > 0 && (
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.horizontalTypeList}
+                      contentContainerStyle={styles.horizontalTypeListContent}
+                    >
+                      {moneyLentTypes.map((type) => (
+                        <TouchableOpacity
+                          key={type._id}
+                          onPress={() => setSelectedType(type)}
+                          style={[
+                            styles.horizontalTypeButton, 
+                            selectedType?._id === type._id && styles.selectedHorizontalTypeButton
+                          ]}
+                        >
+                          <Text style={[
+                            styles.horizontalTypeButtonText, 
+                            selectedType?._id === type._id && styles.selectedHorizontalTypeButtonText
+                          ]}>
+                            {type.name}
+                          </Text>
+                          <Text style={[
+                            styles.horizontalTypeButtonAmount, 
+                            selectedType?._id === type._id && styles.selectedHorizontalTypeButtonAmount
+                          ]}>
+                            ₹{(type.totalAmount || 0).toFixed(0)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
                 </View>
               ) : (
                 <View style={styles.newTypeContainer}>
                   <TextInput
                     placeholder="Enter new type name"
-                    value={form.newTypeName}
-                    onChangeText={(text) => setForm(prev => ({ ...prev, newTypeName: text }))}
+                    value={newType}
+                    onChangeText={setNewType}
                     style={styles.textInput}
+                    placeholderTextColor="#888"
                   />
-                  <TouchableOpacity
-                    onPress={handleAddNewType}
-                    style={styles.confirmTypeButton}
-                  >
-                    <MaterialIcons name="check" size={18} color="#ffffff" />
-                  </TouchableOpacity>
+                  <View style={styles.newTypeButtons}>
+                    <TouchableOpacity
+                      onPress={handleAddNewType}
+                      style={styles.saveTypeButton}
+                    >
+                      <Text style={styles.saveTypeButtonText}>Save</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowNewTypeInput(false);
+                        setNewType('');
+                      }}
+                      style={styles.cancelTypeButton}
+                    >
+                      <Text style={styles.cancelTypeButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
             </View>
 
-            {/* Date */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Date</Text>
-              <TextInput
-                placeholder="YYYY-MM-DD"
-                value={form.date}
-                onChangeText={(text) => setForm(prev => ({ ...prev, date: text }))}
-                style={styles.textInput}
-              />
-            </View>
-
-            {/* Current Total */}
+            {/* Amount and Date */}
             {selectedType && (
-              <View style={styles.totalContainer}>
-                <Text style={styles.totalLabel}>Current Total in {selectedType.name}</Text>
-                <Text style={styles.totalAmount}>₹{getCurrentTotal().toLocaleString()}</Text>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Details</Text>
+                
+                <TextInput
+                  placeholder="Date (YYYY-MM-DD)"
+                  value={date}
+                  onChangeText={setDate}
+                  style={styles.textInput}
+                  placeholderTextColor="#888"
+                />
+
+                <TextInput
+                  placeholder="Amount"
+                  value={amount}
+                  onChangeText={setAmount}
+                  style={styles.textInput}
+                  keyboardType="numeric"
+                  placeholderTextColor="#888"
+                />
+
+                {/* Current Total */}
+                <View style={styles.totalContainer}>
+                  <Text style={styles.totalLabel}>Current Total:</Text>
+                  <Text style={styles.totalValue}>₹{(getCurrentTotal() || 0).toFixed(2)}</Text>
+                </View>
+
+                {/* New Total */}
+                <View style={styles.totalContainer}>
+                  <Text style={styles.totalLabel}>New Total:</Text>
+                  <Text style={styles.totalValue}>₹{(getNewTotal() || 0).toFixed(2)}</Text>
+                </View>
               </View>
             )}
 
-            {/* Amount */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Amount to Add *</Text>
-              <TextInput
-                placeholder="Enter amount"
-                value={form.amount}
-                onChangeText={(text) => setForm(prev => ({ ...prev, amount: text }))}
-                keyboardType="numeric"
-                style={styles.textInput}
-              />
-            </View>
-
-            {/* New Total */}
-            {selectedType && form.amount && (
-              <View style={styles.newTotalContainer}>
-                <Text style={styles.newTotalLabel}>New Total in {selectedType.name}</Text>
-                <Text style={styles.newTotalAmount}>₹{getNewTotal().toLocaleString()}</Text>
-              </View>
-            )}
-          </View>
-        </ScrollView>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={loading}
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-          >
-            <Text style={styles.submitButtonText}>
-              {loading ? 'Adding...' : 'Add Money Lent'}
-            </Text>
-          </TouchableOpacity>
+            {/* Submit Button */}
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={loading || !selectedType || !amount}
+              style={[
+                styles.submitButton, 
+                (loading || !selectedType || !amount) && styles.submitButtonDisabled,
+                keyboardVisible && { marginBottom: 40 } // Extra space when keyboard is open
+              ]}
+            >
+              <Text style={styles.submitButtonText}>
+                {loading ? 'Adding...' : 'Add Money Lent'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </View>
     </View>
@@ -249,166 +336,280 @@ export default function AddMoneyLentPopup({ token, onClose }: AddMoneyLentPopupP
 
 const styles = StyleSheet.create({
   overlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    zIndex: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  keyboardAvoidingTop: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'flex-start', // Default: start at top
+    paddingTop: 20,
+    alignItems: 'center',
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    bottom: 0, // Ensure it covers full height
     zIndex: 1000,
   },
-  modalContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '90%',
-    minHeight: 500,
+  container: {
+    backgroundColor: '#fff',
+    width: '91%',
+    maxWidth: 480,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
+  containerTop: {
+    marginTop: 0
   },
   closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
     backgroundColor: '#f3f4f6',
-    borderRadius: 20,
+    borderRadius: 999,
     padding: 8,
   },
-  formContainer: {
-    flex: 1,
-    padding: 16,
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1d4ed8',
+    textAlign: 'center',
+    paddingTop: 28,
+    paddingBottom: 8,
   },
-  formContent: {
-    gap: 16,
+  scrollView: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 8,
+    flexGrow: 1, // Allow content to grow
   },
-  inputContainer: {
-    marginBottom: 16,
+  section: {
+    marginBottom: 24,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#374151',
-    marginBottom: 8,
-  },
-  typesScrollView: {
-    flexDirection: 'row',
     marginBottom: 12,
   },
-  typeButton: {
+  typeSelectionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  dropdownContainer: {
+    flex: 1,
+  },
+  dropdown: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f3f4f6',
-    marginRight: 8,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  selectedTypeButton: {
-    backgroundColor: '#2563eb',
-  },
-  typeButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  selectedTypeButtonText: {
-    color: '#ffffff',
+  dropdownText: {
+    fontSize: 16,
+    color: '#000',
+    flex: 1,
   },
   addTypeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#dbeafe',
-  },
-  addTypeButtonText: {
-    color: '#2563eb',
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  newTypeContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  textInput: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#f9fafb',
-    color: '#1f2937',
-    fontSize: 16,
-  },
-  confirmTypeButton: {
     backgroundColor: '#2563eb',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 12,
+    padding: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    width: 48,
+    height: 48,
+  },
+  newTypeContainer: {
+    marginBottom: 16,
+  },
+  textInput: {
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#000',
+    fontSize: 16,
+  },
+  newTypeButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  saveTypeButton: {
+    flex: 1,
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  saveTypeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelTypeButton: {
+    flex: 1,
+    backgroundColor: '#6b7280',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelTypeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  typeList: {
+    gap: 8,
+  },
+  typeItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    marginBottom: 8,
+  },
+  selectedTypeItem: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#2563eb',
+  },
+  typeItemText: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+  },
+  selectedTypeItemText: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  typeItemAmount: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  selectedTypeItemAmount: {
+    color: '#2563eb',
+    fontWeight: '600',
   },
   totalContainer: {
-    backgroundColor: '#faf5ff',
-    borderRadius: 8,
-    padding: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginBottom: 12,
   },
   totalLabel: {
     fontSize: 14,
-    color: '#581c87',
+    fontWeight: '500',
+    color: '#374151',
   },
-  totalAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#581c87',
-  },
-  newTotalContainer: {
-    backgroundColor: '#f3e8ff',
-    borderRadius: 8,
-    padding: 12,
-  },
-  newTotalLabel: {
-    fontSize: 14,
-    color: '#6b21a8',
-  },
-  newTotalAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#6b21a8',
-  },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+  totalValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#f59e0b',
   },
   submitButton: {
-    width: '100%',
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#7c3aed',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#2563eb',
+    paddingVertical: 16,
+    borderRadius: 16,
+    marginTop: 8,
+    marginBottom: 20, // Add bottom margin for gap from screen bottom
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitButtonDisabled: {
     backgroundColor: '#9ca3af',
   },
   submitButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     textAlign: 'center',
     fontWeight: '600',
-    fontSize: 18,
+    fontSize: 16,
+  },
+  // New styles for horizontal type listing
+  moneyLentTypesSection: {
+    marginBottom: 16,
+  },
+  moneyLentTypesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  moneyLentTypesLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  horizontalTypeList: {
+    maxHeight: 80,
+  },
+  horizontalTypeListContent: {
+    paddingRight: 16,
+  },
+  horizontalTypeButton: {
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginRight: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  selectedHorizontalTypeButton: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#2563eb',
+  },
+  horizontalTypeButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    textAlign: 'center',
+  },
+  selectedHorizontalTypeButtonText: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  horizontalTypeButtonAmount: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  selectedHorizontalTypeButtonAmount: {
+    color: '#2563eb',
+    fontWeight: '500',
   },
 }); 

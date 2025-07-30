@@ -184,7 +184,7 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
         <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8, marginBottom: 8 }}>
           <TouchableOpacity
             onPress={handleDownloadExpenses}
-            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f59e42', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.10, shadowRadius: 4, elevation: 2 }}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.10, shadowRadius: 4, elevation: 2 }}
           >
             <MaterialIcons name="download" size={20} color="#fff" />
             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>Download Expenses</Text>

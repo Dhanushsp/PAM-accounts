@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, Keyboard, Dimensions, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  Pressable, 
+  StyleSheet, 
+  Alert, 
+  Keyboard, 
+  Dimensions, 
+  ScrollView,
+  Platform
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import { KeyboardAvoidingView, Platform } from 'react-native';
-
 
 interface IncomeType {
   _id: string;
@@ -21,11 +30,11 @@ interface SavingsType {
 interface AddIncomePopupProps {
   token: string;
   onClose: () => void;
-  onIncomeAdded: () => void;
+  onIncomeAdded?: () => void;
 }
 
 export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddIncomePopupProps) {
-  const [selectedType, setSelectedType] = useState<any>(null); // Initialize as null
+  const [selectedType, setSelectedType] = useState<any>(null);
   const [newType, setNewType] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -36,35 +45,40 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
   const [isFromSavings, setIsFromSavings] = useState(false);
   const [selectedSavingsType, setSelectedSavingsType] = useState<any>(null);
 
-  // Keyboard detection
+  // Keyboard state
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const screenHeight = Dimensions.get('window').height;
-  const insets = useSafeAreaInsets();
+  const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
+
+  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardVisible(true);
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
-      setKeyboardHeight(0);
-    });
+    // Set initial screen height
+    setScreenHeight(Dimensions.get('window').height);
 
+    // Add keyboard event listeners
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setKeyboardVisible(true);
+      }
+    );
+
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        setKeyboardVisible(false);
+      }
+    );
+
+    // Cleanup listeners
     return () => {
       keyboardDidShowListener?.remove();
       keyboardDidHideListener?.remove();
     };
   }, []);
-
-  // Calculate dynamic heights based on keyboard state
-  const availableHeight = screenHeight - keyboardHeight - insets.top - insets.bottom - 40;
-  const containerMaxHeight = keyboardVisible 
-    ? Math.min(screenHeight * 0.85, availableHeight)
-    : screenHeight * 0.95;
-
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
   useEffect(() => {
     fetchIncomeTypes();
@@ -107,9 +121,9 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
         headers: { Authorization: token }
       });
 
-      const newType = response.data;
-      setIncomeTypes(prev => [...prev, newType]);
-      setSelectedType(newType);
+      const createdType = response.data;
+      setIncomeTypes(prev => [...prev, createdType]);
+      setSelectedType(createdType);
       setNewType('');
       setShowNewTypeInput(false);
     } catch (error: any) {
@@ -119,42 +133,39 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
   };
 
   const handleSubmit = async () => {
-    if (!selectedType) {
-      Alert.alert('Error', 'Please select an income type');
+    if (!selectedType && !isFromSavings) {
+      Alert.alert('Error', 'Please select an income type or choose "From Savings"');
       return;
     }
     if (!amount || parseFloat(amount) <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
+    if (isFromSavings && !selectedSavingsType) {
+      Alert.alert('Error', 'Please select a savings type');
+      return;
+    }
 
     setLoading(true);
     try {
-      const incomeData = {
-        typeId: selectedType._id,
+      const data: any = {
         amount: parseFloat(amount),
-        date: new Date(date),
-        isFromSavings,
-        savingsTypeId: isFromSavings && selectedSavingsType ? selectedSavingsType._id : null
+        date: new Date(date)
       };
 
-      await axios.post(`${BACKEND_URL}/api/income-entries`, incomeData, {
+      if (isFromSavings && selectedSavingsType) {
+        data.isFromSavings = true;
+        data.savingsTypeId = selectedSavingsType._id;
+      } else if (selectedType) {
+        data.typeId = selectedType._id;
+      }
+
+      await axios.post(`${BACKEND_URL}/api/income-entries`, data, {
         headers: { Authorization: token }
       });
 
-      // If income is from savings, deduct from savings
-      if (isFromSavings && selectedSavingsType) {
-        await axios.post(`${BACKEND_URL}/api/savings-entries`, {
-          typeId: selectedSavingsType._id,
-          amount: -parseFloat(amount), // Negative amount to deduct
-          date: new Date(date)
-        }, {
-          headers: { Authorization: token }
-        });
-      }
-
       Alert.alert('Success', 'Income entry added successfully!');
-      onIncomeAdded();
+      onIncomeAdded?.();
       onClose();
     } catch (error: any) {
       console.error('Error adding income entry:', error);
@@ -165,6 +176,9 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
   };
 
   const getCurrentTotal = () => {
+    if (isFromSavings && selectedSavingsType) {
+      return selectedSavingsType.totalAmount;
+    }
     return selectedType ? selectedType.totalAmount : 0;
   };
 
@@ -174,271 +188,266 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
     return currentTotal + newAmount;
   };
 
+  // Calculate dynamic heights based on keyboard state
+  const availableHeight = screenHeight - keyboardHeight - 60; // Increased margin to ensure button visibility
+  const containerMaxHeight = keyboardVisible 
+    ? Math.min(availableHeight - 60, screenHeight * 0.5) // Reduced to 50% max when keyboard is open
+    : screenHeight * 0.95;
+  const scrollViewHeight = keyboardVisible 
+    ? availableHeight - 200 // Much more space for header, padding, and button
+    : '80%';
+  const dropdownMaxHeight = keyboardVisible ? 60 : 160;
+
   return (
-    <View style={[
-      styles.overlay,
-      keyboardVisible && {
-        justifyContent: 'flex-start',
-        paddingTop: insets.top,
-      }
-    ]}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardAvoidingContainer}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
+    <View style={styles.overlay}>
+      <View style={[
+        styles.keyboardAvoidingTop,
+        keyboardVisible && {
+          justifyContent: 'flex-start', // When keyboard is open, align to top of available space
+          paddingTop: 20, // Keep some padding from top
+        }
+      ]}>
         <View style={[
           styles.container, 
-          { 
-            maxHeight: containerMaxHeight,
-            minHeight: keyboardVisible ? Math.min(screenHeight * 0.6, availableHeight) : undefined
+          { maxHeight: containerMaxHeight }, 
+          styles.containerTop,
+          keyboardVisible && {
+            marginBottom: 0, // Remove any bottom margin when keyboard is open
+            marginTop: 0, // Keep at top when keyboard is open
           }
         ]}>
           {/* Close button */}
-          <Pressable onPress={onClose} style={styles.closeButton}>
+          <Pressable onPress={onClose} style={[styles.closeButton, { elevation: 3 }]}>
             <MaterialIcons name="close" size={22} color="#64748b" />
           </Pressable>
 
           <Text style={styles.title}>Add Income</Text>
 
           <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.contentContainer}
+            style={[styles.scrollView, { height: scrollViewHeight }]}
+            contentContainerStyle={[
+              { flexGrow: 1 },
+              keyboardVisible && { paddingBottom: 20 } // Extra padding when keyboard is open
+            ]}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={true}
-            bounces={false}
             nestedScrollEnabled={true}
-            scrollEnabled={true}
-            automaticallyAdjustKeyboardInsets={true}
-            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
           >
-          {/* Income Type Selection */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Income Type</Text>
-            
-            {!showNewTypeInput ? (
-              <View style={styles.typeSelectionContainer}>
-                <View style={styles.dropdownContainer}>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      if (incomeTypes.length === 0) {
-                        setShowNewTypeInput(true);
-                      }
-                    }}
-                  >
-                    <Text style={styles.dropdownText}>
-                      {selectedType ? selectedType.name : 'Select Type'}
-                    </Text>
-                    <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
-                  </TouchableOpacity>
-                </View>
-                
+            {/* Income Type Selection */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Income Type</Text>
+              
+              {/* From Savings Button - Always shown first */}
+              <View style={styles.savingsSection}>
                 <TouchableOpacity
-                  onPress={() => setShowNewTypeInput(true)}
-                  style={styles.addTypeButton}
+                  onPress={() => setIsFromSavings(!isFromSavings)}
+                  style={[styles.savingsButton, isFromSavings && styles.savingsButtonActive]}
                 >
-                  <MaterialIcons name="add" size={20} color="#fff" />
+                  <MaterialIcons name="account-balance-wallet" size={20} color={isFromSavings ? "#fff" : "#6b7280"} />
+                  <Text style={[styles.savingsButtonText, isFromSavings && styles.savingsButtonTextActive]}>
+                    From Savings
+                  </Text>
                 </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.newTypeContainer}>
-                <TextInput
-                  placeholder="Enter new type name"
-                  value={newType}
-                  onChangeText={setNewType}
-                  style={styles.textInput}
-                  placeholderTextColor="#888"
-                />
-                <View style={styles.newTypeButtons}>
-                  <TouchableOpacity
-                    onPress={handleAddNewType}
-                    style={styles.saveTypeButton}
-                  >
-                    <Text style={styles.saveTypeButtonText}>Save</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setShowNewTypeInput(false);
-                      setNewType('');
-                    }}
-                    style={styles.cancelTypeButton}
-                  >
-                    <Text style={styles.cancelTypeButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* Type List */}
-            {incomeTypes.length > 0 && !showNewTypeInput && (
-              <View style={styles.typeList}>
-                {incomeTypes.map((type) => (
-                  <TouchableOpacity
-                    key={type._id}
-                    onPress={() => setSelectedType(type)}
-                    style={[styles.typeItem, selectedType?._id === type._id && styles.selectedTypeItem]}
-                  >
-                    <Text style={[styles.typeItemText, selectedType?._id === type._id && styles.selectedTypeItemText]}>
-                      {type.name}
-                    </Text>
-                    <Text style={[styles.typeItemAmount, selectedType?._id === type._id && styles.selectedTypeItemAmount]}>
-                      ₹{(type.totalAmount || 0).toFixed(2)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-
-          {/* From Savings Option */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Source</Text>
-            
-            <TouchableOpacity
-              onPress={() => setIsFromSavings(!isFromSavings)}
-              style={[styles.checkboxContainer, isFromSavings && styles.checkboxContainerActive]}
-            >
-              <View style={[styles.checkbox, isFromSavings && styles.checkboxActive]}>
-                {isFromSavings && <MaterialIcons name="check" size={16} color="#fff" />}
-              </View>
-              <Text style={styles.checkboxLabel}>From Savings</Text>
-            </TouchableOpacity>
-
-            {isFromSavings && savingsTypes.length > 0 && (
-              <View style={styles.savingsTypeContainer}>
-                <Text style={styles.label}>Select Savings Type:</Text>
-                <View style={styles.dropdownContainer}>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      if (savingsTypes.length > 0) {
-                        setSelectedSavingsType(savingsTypes[0]);
-                      }
-                    }}
-                  >
-                    <Text style={styles.dropdownText}>
-                      {selectedSavingsType ? selectedSavingsType.name : 'Select Savings Type'}
-                    </Text>
-                    <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
-                  </TouchableOpacity>
-                </View>
-                
-                {selectedSavingsType && (
-                  <Text style={styles.savingsInfo}>
-                    Current Savings: ₹{(selectedSavingsType.totalAmount || 0).toFixed(2)}
+                {isFromSavings && (
+                  <Text style={styles.savingsWarningText}>
+                    ⚠️ This money will be reduced from your savings
                   </Text>
                 )}
               </View>
-            )}
-          </View>
 
-          {/* Amount and Date */}
-          {selectedType && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Details</Text>
-              
-              <TextInput
-                placeholder="Date (YYYY-MM-DD)"
-                value={date}
-                onChangeText={setDate}
-                style={styles.textInput}
-                placeholderTextColor="#888"
-              />
-
-              <TextInput
-                placeholder="Amount"
-                value={amount}
-                onChangeText={setAmount}
-                style={styles.textInput}
-                keyboardType="numeric"
-                placeholderTextColor="#888"
-              />
-
-              {/* Current Total */}
-              <View style={styles.totalContainer}>
-                <Text style={styles.totalLabel}>Current Total:</Text>
-                <Text style={styles.totalValue}>₹{(getCurrentTotal() || 0).toFixed(2)}</Text>
-              </View>
-
-              {/* New Total */}
-              <View style={styles.totalContainer}>
-                <Text style={styles.totalLabel}>New Total:</Text>
-                <Text style={styles.totalValue}>₹{(getNewTotal() || 0).toFixed(2)}</Text>
-              </View>
+              {/* Regular Income Types */}
+              {!showNewTypeInput ? (
+                <View style={styles.incomeTypesSection}>
+                  <View style={styles.incomeTypesHeader}>
+                    <Text style={styles.incomeTypesLabel}>Regular Income Types:</Text>
+                    <TouchableOpacity
+                      onPress={() => setShowNewTypeInput(true)}
+                      style={styles.addTypeButton}
+                    >
+                      <MaterialIcons name="add" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* Horizontal Income Type Buttons */}
+                  {incomeTypes.length > 0 && (
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.horizontalTypeList}
+                      contentContainerStyle={styles.horizontalTypeListContent}
+                    >
+                      {incomeTypes.map((type) => (
+                        <TouchableOpacity
+                          key={type._id}
+                          onPress={() => {
+                            setSelectedType(type);
+                            setIsFromSavings(false); // Unselect savings when regular type is selected
+                          }}
+                          style={[
+                            styles.horizontalTypeButton, 
+                            selectedType?._id === type._id && styles.selectedHorizontalTypeButton
+                          ]}
+                        >
+                          <Text style={[
+                            styles.horizontalTypeButtonText, 
+                            selectedType?._id === type._id && styles.selectedHorizontalTypeButtonText
+                          ]}>
+                            {type.name}
+                          </Text>
+                          <Text style={[
+                            styles.horizontalTypeButtonAmount, 
+                            selectedType?._id === type._id && styles.selectedHorizontalTypeButtonAmount
+                          ]}>
+                            ₹{(type.totalAmount || 0).toFixed(0)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.newTypeContainer}>
+                  <TextInput
+                    placeholder="Enter new type name"
+                    value={newType}
+                    onChangeText={setNewType}
+                    style={styles.textInput}
+                    placeholderTextColor="#888"
+                  />
+                  <View style={styles.newTypeButtons}>
+                    <TouchableOpacity
+                      onPress={handleAddNewType}
+                      style={styles.saveTypeButton}
+                    >
+                      <Text style={styles.saveTypeButtonText}>Save</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowNewTypeInput(false);
+                        setNewType('');
+                      }}
+                      style={styles.cancelTypeButton}
+                    >
+                      <Text style={styles.cancelTypeButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
-          )}
 
-          {/* Submit Button */}
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={loading || !selectedType || !amount || (isFromSavings && !selectedSavingsType)}
-            style={[styles.submitButton, (loading || !selectedType || !amount || (isFromSavings && !selectedSavingsType)) && styles.submitButtonDisabled]}
-          >
-            <Text style={styles.submitButtonText}>
-              {loading ? 'Adding...' : 'Add Income'}
-            </Text>
-          </TouchableOpacity>
+            {/* Amount, Date, and Savings Options */}
+            {(selectedType || isFromSavings) && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Details</Text>
+                
+                <TextInput
+                  placeholder="Date (YYYY-MM-DD)"
+                  value={date}
+                  onChangeText={setDate}
+                  style={styles.textInput}
+                  placeholderTextColor="#888"
+                />
+
+                <TextInput
+                  placeholder="Amount"
+                  value={amount}
+                  onChangeText={setAmount}
+                  style={styles.textInput}
+                  keyboardType="numeric"
+                  placeholderTextColor="#888"
+                />
+
+                {/* Savings Type Selection - Only show when "From Savings" is selected */}
+                {isFromSavings && (
+                  <View style={styles.savingsSection}>
+                    <Text style={styles.savingsLabel}>Select Savings Type:</Text>
+                    <View style={[styles.savingsList, { maxHeight: dropdownMaxHeight }]}>
+                      <ScrollView
+                        keyboardShouldPersistTaps="handled"
+                        nestedScrollEnabled={true}
+                      >
+                        {savingsTypes.map((savingsType) => (
+                          <TouchableOpacity
+                            key={savingsType._id}
+                            onPress={() => setSelectedSavingsType(savingsType)}
+                            style={[styles.savingsItem, selectedSavingsType?._id === savingsType._id && styles.selectedSavingsItem]}
+                          >
+                            <Text style={[styles.savingsItemText, selectedSavingsType?._id === savingsType._id && styles.selectedSavingsItemText]}>
+                              {savingsType.name}
+                            </Text>
+                            <Text style={[styles.savingsItemAmount, selectedSavingsType?._id === savingsType._id && styles.selectedSavingsItemAmount]}>
+                              ₹{(savingsType.totalAmount || 0).toFixed(2)}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+                )}
+
+                {/* Current Total */}
+                <View style={styles.totalContainer}>
+                  <Text style={styles.totalLabel}>
+                    {isFromSavings ? 'Current Savings:' : 'Current Total:'}
+                  </Text>
+                  <Text style={styles.totalValue}>₹{(getCurrentTotal() || 0).toFixed(2)}</Text>
+                </View>
+
+                {/* New Total */}
+                <View style={styles.totalContainer}>
+                  <Text style={styles.totalLabel}>
+                    {isFromSavings ? 'New Savings:' : 'New Total:'}
+                  </Text>
+                  <Text style={styles.totalValue}>₹{(getNewTotal() || 0).toFixed(2)}</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={loading || !selectedType || !amount || (isFromSavings && !selectedSavingsType)}
+              style={[
+                styles.submitButton, 
+                (loading || !selectedType || !amount || (isFromSavings && !selectedSavingsType)) && styles.submitButtonDisabled,
+                keyboardVisible && { marginBottom: 40 } // Extra space when keyboard is open
+              ]}
+            >
+              <Text style={styles.submitButtonText}>
+                {loading ? 'Adding...' : 'Add Income'}
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    zIndex: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  keyboardAvoidingTop: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'flex-start', // Default: start at top
+    paddingTop: 20,
+    alignItems: 'center',
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    bottom: 0, // Ensure it covers full height
     zIndex: 1000,
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '90%',
-    maxWidth: 400,
-    maxHeight: '90%',
-    minHeight: 500,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  closeButton: {
-    padding: 5,
-  },
-  keyboardAvoidingContainer: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 20,
   },
   container: {
     backgroundColor: '#fff',
-    width: '92%',
+    width: '91%',
     maxWidth: 480,
     borderRadius: 24,
     shadowColor: '#000',
@@ -446,85 +455,100 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     overflow: 'hidden',
-    paddingVertical: 20,
-    flex: 1,
-    maxHeight: '95%',
+    position: 'relative',
+  },
+  containerTop: {
+    marginTop: 0
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 999,
+    padding: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1d4ed8',
+    textAlign: 'center',
+    paddingTop: 28,
+    paddingBottom: 8,
   },
   scrollView: {
     paddingHorizontal: 24,
     paddingBottom: 24,
     paddingTop: 8,
-    flex: 1,
-    minHeight: 0,
-  },
-  contentContainer: {
-    flexGrow: 1,
-    paddingBottom: 20,
+    flexGrow: 1, // Allow content to grow
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   typeSelectionContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 15,
+    gap: 12,
+    marginBottom: 16,
   },
   dropdownContainer: {
     flex: 1,
   },
   dropdown: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
   },
   dropdownText: {
     fontSize: 16,
-    color: '#1f2937',
+    color: '#000',
     flex: 1,
   },
   addTypeButton: {
     backgroundColor: '#2563eb',
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 12,
+    padding: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    width: 48,
+    height: 48,
   },
   newTypeContainer: {
-    marginBottom: 15,
+    marginBottom: 16,
   },
   textInput: {
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#000',
     fontSize: 16,
-    color: '#1f2937',
-    backgroundColor: '#fff',
-    marginBottom: 12,
   },
   newTypeButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   saveTypeButton: {
     flex: 1,
     backgroundColor: '#2563eb',
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: 'center',
   },
   saveTypeButtonText: {
@@ -535,8 +559,8 @@ const styles = StyleSheet.create({
   cancelTypeButton: {
     flex: 1,
     backgroundColor: '#6b7280',
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: 'center',
   },
   cancelTypeButtonText: {
@@ -551,12 +575,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     backgroundColor: '#f9fafb',
+    marginBottom: 8,
   },
   selectedTypeItem: {
     backgroundColor: '#dbeafe',
@@ -579,57 +604,81 @@ const styles = StyleSheet.create({
     color: '#2563eb',
     fontWeight: '600',
   },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
+  savingsToggleContainer: {
+    marginBottom: 16,
   },
-  checkboxContainerActive: {
-    backgroundColor: '#f0f9ff',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    marginRight: 12,
-    justifyContent: 'center',
+  toggleButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
     alignItems: 'center',
   },
-  checkboxActive: {
-    backgroundColor: '#2563eb',
+  toggleButtonActive: {
+    backgroundColor: '#dbeafe',
     borderColor: '#2563eb',
   },
-  checkboxLabel: {
-    fontSize: 16,
-    color: '#374151',
-  },
-  savingsTypeContainer: {
-    marginTop: 12,
-  },
-  label: {
+  toggleText: {
     fontSize: 14,
+    color: '#374151',
     fontWeight: '500',
+  },
+  toggleTextActive: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  savingsLabel: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#374151',
     marginBottom: 8,
   },
-  savingsInfo: {
+  savingsList: {
+    gap: 8,
+  },
+  savingsItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    marginBottom: 8,
+  },
+  selectedSavingsItem: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#2563eb',
+  },
+  savingsItemText: {
     fontSize: 14,
-    color: '#059669',
-    fontWeight: '500',
-    marginTop: 8,
+    color: '#374151',
+    flex: 1,
+  },
+  selectedSavingsItemText: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  savingsItemAmount: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  selectedSavingsItemAmount: {
+    color: '#2563eb',
+    fontWeight: '600',
   },
   totalContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#f9fafb',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     marginBottom: 12,
@@ -646,17 +695,112 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#2563eb',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
+    paddingVertical: 16,
+    borderRadius: 16,
+    marginTop: 8,
+    marginBottom: 20, // Add bottom margin for gap from screen bottom
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitButtonDisabled: {
     backgroundColor: '#9ca3af',
   },
   submitButtonText: {
     color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  // New styles for the updated UI
+  savingsSection: {
+    marginBottom: 20,
+  },
+  savingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  savingsButtonActive: {
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
+  },
+  savingsButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#374151',
+    marginLeft: 8,
+  },
+  savingsButtonTextActive: {
+    color: '#fff',
+  },
+  savingsWarningText: {
+    fontSize: 12,
+    color: '#dc2626',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  incomeTypesSection: {
+    marginBottom: 16,
+  },
+  incomeTypesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  incomeTypesLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  horizontalTypeList: {
+    maxHeight: 80,
+  },
+  horizontalTypeListContent: {
+    paddingRight: 16,
+  },
+  horizontalTypeButton: {
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginRight: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  selectedHorizontalTypeButton: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#2563eb',
+  },
+  horizontalTypeButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    textAlign: 'center',
+  },
+  selectedHorizontalTypeButtonText: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  horizontalTypeButtonAmount: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  selectedHorizontalTypeButtonAmount: {
+    color: '#2563eb',
+    fontWeight: '500',
   },
 }); 

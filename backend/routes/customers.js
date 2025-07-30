@@ -75,6 +75,43 @@ router.post("/sale", async (req, res) => {
   }
 });
 
+// Utility route to fix lastPurchase dates for all customers
+router.post('/fix-last-purchase-dates', auth, async (req, res) => {
+  try {
+    const customers = await Customer.find({});
+    let fixedCount = 0;
+    
+    for (const customer of customers) {
+      if (customer.sales && customer.sales.length > 0) {
+        const mostRecentSale = customer.sales.reduce((latest, sale) => {
+          const saleDate = new Date(sale.date);
+          const latestDate = new Date(latest.date);
+          return saleDate > latestDate ? sale : latest;
+        });
+        
+        const mostRecentDate = new Date(mostRecentSale.date);
+        const currentLastPurchase = customer.lastPurchase ? new Date(customer.lastPurchase) : null;
+        
+        if (!currentLastPurchase || mostRecentDate.getTime() !== currentLastPurchase.getTime()) {
+          await Customer.findByIdAndUpdate(customer._id, {
+            lastPurchase: mostRecentDate
+          });
+          fixedCount++;
+          console.log(`Fixed lastPurchase for customer ${customer.name}: ${mostRecentDate}`);
+        }
+      }
+    }
+    
+    res.json({ 
+      message: `Fixed lastPurchase dates for ${fixedCount} customers`,
+      fixedCount 
+    });
+  } catch (err) {
+    console.error('Error fixing lastPurchase dates:', err);
+    res.status(500).json({ error: 'Failed to fix lastPurchase dates' });
+  }
+});
+
 router.get('/customers', auth, async (req, res) => {
   try {
     const customers = await Customer.find();
