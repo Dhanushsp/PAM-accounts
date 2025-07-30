@@ -32,7 +32,7 @@ router.post('/', auth, async (req, res) => {
 
     const category = new Category({
       name: name.trim(),
-      subcategories: subcategories.map((sub: string) => sub.trim()).filter((sub: string) => sub !== '')
+      subcategories: subcategories.map((sub) => sub.trim()).filter((sub) => sub !== '')
     });
 
     await category.save();
@@ -65,7 +65,7 @@ router.put('/:id', auth, async (req, res) => {
       req.params.id,
       {
         name: name.trim(),
-        subcategories: subcategories ? subcategories.map((sub: string) => sub.trim()).filter((sub: string) => sub !== '') : undefined,
+        subcategories: subcategories ? subcategories.map((sub) => sub.trim()).filter((sub) => sub !== '') : undefined,
         updatedAt: new Date()
       },
       { new: true }
