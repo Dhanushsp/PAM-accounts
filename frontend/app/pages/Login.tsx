@@ -1,7 +1,19 @@
-import React, { useState } from 'react';
-import { SafeAreaView, TextInput, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Keyboard,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
-import KeyboardAwareView from '../components/KeyboardAwareView';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface LoginProps {
   setToken: (token: string) => void;
@@ -10,14 +22,29 @@ interface LoginProps {
 export default function Login({ setToken }: LoginProps) {
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
   const handleLogin = async () => {
     if (!mobile || !password) {
-      setError('Please enter mobile and password');
+      setError('Please enter both mobile and password');
       return;
     }
 
@@ -26,6 +53,7 @@ export default function Login({ setToken }: LoginProps) {
 
     try {
       const res = await axios.post(`${BACKEND_URL}/api/login`, { mobile, password });
+      await AsyncStorage.setItem('token', res.data.token);
       setToken(res.data.token);
     } catch (err: any) {
       console.error('Login error:', err);
@@ -36,111 +64,128 @@ export default function Login({ setToken }: LoginProps) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAwareView
-        style={styles.keyboardAwareContainer}
-        contentContainerStyle={styles.contentContainer}
-        extraScrollHeight={100}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-      <View style={styles.container}>
-        <View style={styles.loginBox}>
-          <Text style={styles.title}>Login</Text>
-          <View style={styles.inputGroup}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            keyboardVisible && styles.scrollContentKeyboardVisible
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.loginBox}>
+            <Text style={styles.title}>Login</Text>
+            
             <TextInput
               style={styles.input}
-              placeholder="Mobile"
+              placeholder="Mobile Number"
               value={mobile}
               onChangeText={setMobile}
-              keyboardType="number-pad"
-              placeholderTextColor="#888"
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholderTextColor="#9ca3af"
             />
+
             <TextInput
               style={styles.input}
               placeholder="Password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              placeholderTextColor="#888"
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholderTextColor="#9ca3af"
             />
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
             <TouchableOpacity
               onPress={handleLogin}
               disabled={isLoading}
-              style={styles.loginButton}
+              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
             >
               <Text style={styles.loginButtonText}>
                 {isLoading ? 'Logging in...' : 'Login'}
               </Text>
             </TouchableOpacity>
           </View>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        </View>
-      </View>
-      </KeyboardAwareView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#EBF8FF', // equivalent to bg-blue-50
-  },
-  keyboardAwareContainer: {
-    flex: 1,
-  },
-  contentContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100%',
-  },
   container: {
     flex: 1,
+    backgroundColor: '#EBF8FF', // blue-50
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    width: '100%',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  scrollContentKeyboardVisible: {
+    justifyContent: 'flex-start',
+    paddingTop: 40,
   },
   loginBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    width: '80%', // w-4/5
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    minHeight: 400,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 24,
+    color: '#1d4ed8', // blue-700
     textAlign: 'center',
-    color: '#1d4ed8',
-  },
-  inputGroup: {
-    // space-y-4
-    marginBottom: 0,
+    marginBottom: 32,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db', // border-gray-300
-    padding: 8,
-    borderRadius: 8,
-    color: '#000',
-    backgroundColor: '#fff',
-    marginBottom: 16, // space-y-4
-  },
-  loginButton: {
-    width: '100%',
-    backgroundColor: '#2563eb', // bg-blue-600
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  loginButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '600',
+    borderColor: '#e5e7eb', // gray-200
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    marginBottom: 16,
+    backgroundColor: '#f9fafb', // gray-50
+    color: '#1f2937', // gray-800
   },
   errorText: {
-    marginTop: 16,
-    color: '#ef4444',
+    color: '#dc2626', // red-600
     textAlign: 'center',
+    marginBottom: 16,
+    fontSize: 14,
   },
-});
+  loginButton: {
+    backgroundColor: '#2563eb', // blue-600
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  loginButtonDisabled: {
+    backgroundColor: '#9ca3af', // gray-400
+  },
+  loginButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+}); 
