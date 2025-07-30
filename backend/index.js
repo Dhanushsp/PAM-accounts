@@ -7,6 +7,7 @@ import customerRoutes from "./routes/customers.js";
 import addproductsRoutes from "./routes/addproducts.js"
 import salesRoutes from "./routes/sales.js"
 import expensesRoutes from "./routes/expenses.js";
+import categoriesRoutes from "./routes/categories.js";
 import bcrypt from "bcrypt";
 import Admin from "./models/Admin.js";
 
@@ -29,6 +30,7 @@ app.use("/api/addproducts", addproductsRoutes);
 app.use("/api/products", addproductsRoutes)
 app.use("/api/sales", salesRoutes);
 app.use("/api/expenses", expensesRoutes);
+app.use("/api/categories", categoriesRoutes);
 import vendorRoutes from './routes/vendors.js';
 import purchaseRoutes from './routes/purchases.js';
 import savingsTypesRoutes from './routes/savings-types.js';

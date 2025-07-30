@@ -38,7 +38,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [currentCredit, setCurrentCredit] = useState(0);
-  const [saleType, setSaleType] = useState<'kg' | 'pack'>('kg');
+  const [saleType, setSaleType] = useState<'pack' | 'kg'>('pack');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [productDetails, setProductDetails] = useState<ProductDetail[]>([]);
   const [totalPrice, setTotalPrice] = useState(0);
@@ -203,6 +203,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
         </Pressable>
 
         <Text style={styles.title}>Add Sale</Text>
+        <Text style={styles.requiredNote}>* Required fields</Text>
 
           <ScrollView
             style={[styles.scrollView, { height: scrollViewHeight }]}
@@ -210,8 +211,9 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled={true}
           >
+          <Text style={styles.fieldLabel}>Customer Name *</Text>
           <TextInput
-            placeholder="Search Customer"
+            placeholder="Type customer name to search..."
             value={customerName}
             onChangeText={setCustomerName}
             style={styles.input}
@@ -242,6 +244,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
             <>
               <Text style={styles.creditText}>Current Credit: ₹{currentCredit.toFixed(2)}</Text>
 
+              <Text style={styles.fieldLabel}>Sale Date *</Text>
               <DatePicker
                 value={new Date(saleDate)}
                 onDateChange={(date) => setSaleDate(date ? date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0])}
@@ -250,6 +253,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
               />
 
               {/* Sale type */}
+              <Text style={styles.fieldLabel}>Sale Type *</Text>
               <View style={styles.rowGap2}>
                 {['kg', 'pack'].map(type => (
                   <Pressable
@@ -265,7 +269,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
               </View>
 
               {/* Products */}
-              <Text style={styles.productsLabel}>Products</Text>
+              <Text style={styles.fieldLabel}>Select Products *</Text>
                 <View style={[styles.productsList, { maxHeight: dropdownMaxHeight }]}>
                   <ScrollView
                     keyboardShouldPersistTaps="handled"
@@ -298,40 +302,47 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
                 <View key={item.productId} style={styles.productDetailBox}>
                   <Text style={styles.productDetailTitle}>{item.productName}</Text>
                   <View style={styles.rowGap2}>
-                    <TextInput
-                      value={item.quantity.toString()}
-                      onChangeText={v => {
-                        const updated = [...productDetails];
-                        updated[idx].quantity = parseFloat(v) || 0;
-                        setProductDetails(updated);
-                      }}
-                      placeholder="Quantity"
-                      keyboardType="numeric"
-                      style={styles.productDetailInput}
-                      placeholderTextColor="#888"
-                    />
-                    <TextInput
-                      value={item.price.toString()}
-                      onChangeText={v => {
-                        const updated = [...productDetails];
-                        updated[idx].price = parseFloat(v) || 0;
-                        setProductDetails(updated);
-                      }}
-                      placeholder="Price"
-                      keyboardType="numeric"
-                      style={styles.productDetailInput}
-                      placeholderTextColor="#888"
-                    />
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Quantity *</Text>
+                      <TextInput
+                        value={item.quantity.toString()}
+                        onChangeText={v => {
+                          const updated = [...productDetails];
+                          updated[idx].quantity = parseFloat(v) || 0;
+                          setProductDetails(updated);
+                        }}
+                        placeholder="Enter quantity"
+                        keyboardType="numeric"
+                        style={styles.productDetailInput}
+                        placeholderTextColor="#888"
+                      />
+                    </View>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Price per {saleType} *</Text>
+                      <TextInput
+                        value={item.price.toString()}
+                        onChangeText={v => {
+                          const updated = [...productDetails];
+                          updated[idx].price = parseFloat(v) || 0;
+                          setProductDetails(updated);
+                        }}
+                        placeholder="Enter price"
+                        keyboardType="numeric"
+                        style={styles.productDetailInput}
+                        placeholderTextColor="#888"
+                      />
+                    </View>
                   </View>
                 </View>
               ))}
 
               <Text style={styles.totalPriceText}>Total Price: ₹{totalPrice.toFixed(2)}</Text>
 
+              <Text style={styles.fieldLabel}>Amount Received *</Text>
               <TextInput
                 value={amountReceived.toString()}
                 onChangeText={v => setAmountReceived(parseFloat(v) || 0)}
-                placeholder="Amount Received"
+                placeholder="Enter amount received"
                 keyboardType="numeric"
                 style={styles.input}
                 placeholderTextColor="#888"
@@ -340,6 +351,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
               <Text style={styles.updatedCreditText}>Updated Credit: ₹{updatedCredit.toFixed(2)}</Text>
 
               {/* Payment method */}
+              <Text style={styles.fieldLabel}>Payment Method *</Text>
               <View style={styles.rowGap2Mb4}>
                 {['cash', 'online'].map(method => (
                   <Pressable
@@ -432,6 +444,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: 28,
     paddingBottom: 8,
+  },
+  requiredNote: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  fieldLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  inputGroup: {
+    flex: 1,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginBottom: 4,
   },
   scrollView: {
     paddingHorizontal: 24,

@@ -11,23 +11,21 @@ interface AddExpensePopupProps {
 }
 
 interface Category {
+  _id: string;
   name: string;
   subcategories: string[];
 }
 
-const MOCK_CATEGORIES: Category[] = [
-  { name: 'Food', subcategories: ['Groceries', 'Dining Out', 'Snacks'] },
-  { name: 'Transport', subcategories: ['Taxi', 'Bus', 'Fuel'] },
-  { name: 'Utilities', subcategories: ['Electricity', 'Water', 'Internet'] },
-];
+// Empty initial categories - will be loaded from database
+const INITIAL_CATEGORIES: Category[] = [];
 
 export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps) {
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState(MOCK_CATEGORIES[0].name);
-  const [subcategory, setSubcategory] = useState(MOCK_CATEGORIES[0].subcategories[0]);
+  const [category, setCategory] = useState('');
+  const [subcategory, setSubcategory] = useState('');
   const [description, setDescription] = useState('');
-  const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [newSubcategory, setNewSubcategory] = useState('');
@@ -42,6 +40,32 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
   const [editSubcategoryName, setEditSubcategoryName] = useState('');
   const [showCategorySelectModal, setShowCategorySelectModal] = useState(false);
   const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
+
+  // Fetch categories from database
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`, {
+        headers: { Authorization: token }
+      });
+      setCategories(response.data);
+      
+      // Set default category and subcategory if available
+      if (response.data.length > 0 && !category) {
+        setCategory(response.data[0].name);
+        if (response.data[0].subcategories.length > 0) {
+          setSubcategory(response.data[0].subcategories[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      Alert.alert('Error', 'Failed to load categories');
+    }
+  };
+
+  // Load categories on component mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   // Keyboard detection
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -112,20 +136,48 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
   };
 
   // Handle category add/edit
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (newCategory.trim()) {
-      setCategories([...categories, { name: newCategory.trim(), subcategories: [] }]);
-      setNewCategory('');
+      try {
+        const response = await axios.post(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`, {
+          name: newCategory.trim(),
+          subcategories: []
+        }, {
+          headers: { Authorization: token }
+        });
+        
+        setCategories([...categories, response.data.category]);
+        setNewCategory('');
+        Alert.alert('Success', 'Category added successfully!');
+      } catch (error: any) {
+        console.error('Error adding category:', error);
+        Alert.alert('Error', error.response?.data?.error || 'Failed to add category');
+      }
     }
   };
-  const handleAddSubcategory = () => {
+  const handleAddSubcategory = async () => {
     if (newSubcategory.trim() && category) {
-      setCategories(categories.map(cat =>
-        cat.name === category
-          ? { ...cat, subcategories: [...cat.subcategories, newSubcategory.trim()] }
-          : cat
-      ));
-      setNewSubcategory('');
+      try {
+        const selectedCategory = categories.find(cat => cat.name === category);
+        if (!selectedCategory) return;
+
+        const response = await axios.post(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories/${selectedCategory._id}/subcategories`, {
+          subcategory: newSubcategory.trim()
+        }, {
+          headers: { Authorization: token }
+        });
+        
+        setCategories(categories.map(cat =>
+          cat._id === selectedCategory._id
+            ? response.data.category
+            : cat
+        ));
+        setNewSubcategory('');
+        Alert.alert('Success', 'Subcategory added successfully!');
+      } catch (error: any) {
+        console.error('Error adding subcategory:', error);
+        Alert.alert('Error', error.response?.data?.error || 'Failed to add subcategory');
+      }
     }
   };
 
@@ -134,19 +186,44 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
     setEditingCategoryIdx(idx);
     setEditCategoryName(categories[idx].name);
   };
-  const handleSaveEditCategory = (idx: number) => {
+  const handleSaveEditCategory = async (idx: number) => {
     if (editCategoryName.trim()) {
-      setCategories(categories.map((cat, i) => i === idx ? { ...cat, name: editCategoryName.trim() } : cat));
-      setEditingCategoryIdx(null);
-      setEditCategoryName('');
+      try {
+        const categoryToEdit = categories[idx];
+        const response = await axios.put(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories/${categoryToEdit._id}`, {
+          name: editCategoryName.trim(),
+          subcategories: categoryToEdit.subcategories
+        }, {
+          headers: { Authorization: token }
+        });
+        
+        setCategories(categories.map((cat, i) => i === idx ? response.data.category : cat));
+        setEditCategoryName('');
+        setEditingCategoryIdx(null);
+        Alert.alert('Success', 'Category updated successfully!');
+      } catch (error: any) {
+        console.error('Error updating category:', error);
+        Alert.alert('Error', error.response?.data?.error || 'Failed to update category');
+      }
     }
   };
-  const handleDeleteCategory = (idx: number) => {
+  const handleDeleteCategory = async (idx: number) => {
     Alert.alert('Delete Category', 'Are you sure you want to delete this category and all its subcategories?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => {
-        setCategories(categories.filter((_, i) => i !== idx));
-        if (categories[idx].name === category) setCategory(categories[0]?.name || '');
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          const categoryToDelete = categories[idx];
+          await axios.delete(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories/${categoryToDelete._id}`, {
+            headers: { Authorization: token }
+          });
+          
+          setCategories(categories.filter((_, i) => i !== idx));
+          if (categories[idx].name === category) setCategory(categories[0]?.name || '');
+          Alert.alert('Success', 'Category deleted successfully!');
+        } catch (error: any) {
+          console.error('Error deleting category:', error);
+          Alert.alert('Error', error.response?.data?.error || 'Failed to delete category');
+        }
       }}
     ]);
   };
