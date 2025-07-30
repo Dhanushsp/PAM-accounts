@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddMoneyLentPopup from './AddMoneyLentPopup';
+import DatePicker from '../DatePicker';
 
 interface MoneyLentType {
   _id: string;
@@ -29,6 +30,7 @@ export default function MoneyLentTab({ token }: MoneyLentTabProps) {
   const [selectedType, setSelectedType] = useState<MoneyLentType | null>(null);
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
+  const [filterType, setFilterType] = useState<string>('all');
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
@@ -73,6 +75,13 @@ export default function MoneyLentTab({ token }: MoneyLentTabProps) {
     }
 
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  const getFilteredTypes = () => {
+    if (filterType === 'all') {
+      return moneyLentTypes;
+    }
+    return moneyLentTypes.filter(type => type.name === filterType);
   };
 
   const handleTypePress = (type: MoneyLentType) => {
@@ -189,7 +198,7 @@ export default function MoneyLentTab({ token }: MoneyLentTabProps) {
         </View>
       ) : (
         <ScrollView style={styles.typesList} showsVerticalScrollIndicator={false}>
-          {moneyLentTypes.map((type) => (
+          {getFilteredTypes().map((type) => (
             <TouchableOpacity
               key={type._id}
               onPress={() => handleTypePress(type)}
@@ -406,5 +415,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#7c3aed',
+  },
+  typeFilterScroll: {
+    flexDirection: 'row',
+  },
+  typeFilterChip: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  activeTypeFilterChip: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  typeFilterChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+  },
+  activeTypeFilterChipText: {
+    color: '#ffffff',
   },
 }); 

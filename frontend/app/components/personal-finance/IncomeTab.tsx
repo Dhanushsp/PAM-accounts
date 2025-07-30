@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddIncomePopup from './AddIncomePopup';
+import DatePicker from '../DatePicker';
 
 interface IncomeType {
   _id: string;
@@ -30,6 +31,7 @@ export default function IncomeTab({ token }: IncomeTabProps) {
   const [selectedType, setSelectedType] = useState<IncomeType | null>(null);
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
+  const [filterType, setFilterType] = useState<string>('all');
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
@@ -76,6 +78,13 @@ export default function IncomeTab({ token }: IncomeTabProps) {
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
+  const getFilteredTypes = () => {
+    if (filterType === 'all') {
+      return incomeTypes;
+    }
+    return incomeTypes.filter(type => type.name === filterType);
+  };
+
   const handleTypePress = (type: IncomeType) => {
     setSelectedType(type);
   };
@@ -108,31 +117,45 @@ export default function IncomeTab({ token }: IncomeTabProps) {
         <View style={styles.filterContainer}>
           <Text style={styles.filterLabel}>Filter by Date Range:</Text>
           <View style={styles.dateFilterRow}>
-            <TouchableOpacity
-              onPress={() => {
-                // TODO: Implement date picker
-                Alert.alert('Date Picker', 'Date picker functionality will be implemented');
-              }}
-              style={styles.dateFilterButton}
-            >
-              <Text style={styles.dateFilterLabel}>From Date</Text>
-              <Text style={styles.dateFilterValue}>
-                {filterFromDate ? filterFromDate.toLocaleDateString() : 'Select'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                // TODO: Implement date picker
-                Alert.alert('Date Picker', 'Date picker functionality will be implemented');
-              }}
-              style={styles.dateFilterButton}
-            >
-              <Text style={styles.dateFilterLabel}>To Date</Text>
-              <Text style={styles.dateFilterValue}>
-                {filterToDate ? filterToDate.toLocaleDateString() : 'Select'}
-              </Text>
-            </TouchableOpacity>
+            <DatePicker
+              value={filterFromDate}
+              onDateChange={setFilterFromDate}
+              placeholder="From Date"
+              style={{ flex: 1, marginRight: 6 }}
+            />
+            <DatePicker
+              value={filterToDate}
+              onDateChange={setFilterToDate}
+              placeholder="To Date"
+              style={{ flex: 1, marginLeft: 6 }}
+            />
           </View>
+        </View>
+
+        {/* Type Filter */}
+        <View style={styles.filterContainer}>
+          <Text style={styles.filterLabel}>Filter by Type:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeFilterScroll}>
+            <TouchableOpacity
+              style={[styles.typeFilterChip, filterType === 'all' && styles.activeTypeFilterChip]}
+              onPress={() => setFilterType('all')}
+            >
+              <Text style={[styles.typeFilterChipText, filterType === 'all' && styles.activeTypeFilterChipText]}>
+                All Types
+              </Text>
+            </TouchableOpacity>
+            {incomeTypes.map((type) => (
+              <TouchableOpacity
+                key={type._id}
+                style={[styles.typeFilterChip, filterType === type.name && styles.activeTypeFilterChip]}
+                onPress={() => setFilterType(type.name)}
+              >
+                <Text style={[styles.typeFilterChipText, filterType === type.name && styles.activeTypeFilterChipText]}>
+                  {type.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
         {/* Entries List */}
@@ -175,6 +198,51 @@ export default function IncomeTab({ token }: IncomeTabProps) {
         <Text style={styles.totalAmount}>₹{getTotalIncome().toLocaleString()}</Text>
       </View>
 
+      {/* Date Filters */}
+      <View style={styles.filterContainer}>
+        <Text style={styles.filterLabel}>Filter by Date Range:</Text>
+        <View style={styles.dateFilterRow}>
+          <DatePicker
+            value={filterFromDate}
+            onDateChange={setFilterFromDate}
+            placeholder="From Date"
+            style={{ flex: 1, marginRight: 6 }}
+          />
+          <DatePicker
+            value={filterToDate}
+            onDateChange={setFilterToDate}
+            placeholder="To Date"
+            style={{ flex: 1, marginLeft: 6 }}
+          />
+        </View>
+      </View>
+
+      {/* Type Filter */}
+      <View style={styles.filterContainer}>
+        <Text style={styles.filterLabel}>Filter by Type:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeFilterScroll}>
+          <TouchableOpacity
+            style={[styles.typeFilterChip, filterType === 'all' && styles.activeTypeFilterChip]}
+            onPress={() => setFilterType('all')}
+          >
+            <Text style={[styles.typeFilterChipText, filterType === 'all' && styles.activeTypeFilterChipText]}>
+              All Types
+            </Text>
+          </TouchableOpacity>
+          {incomeTypes.map((type) => (
+            <TouchableOpacity
+              key={type._id}
+              style={[styles.typeFilterChip, filterType === type.name && styles.activeTypeFilterChip]}
+              onPress={() => setFilterType(type.name)}
+            >
+              <Text style={[styles.typeFilterChipText, filterType === type.name && styles.activeTypeFilterChipText]}>
+                {type.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Add Button */}
       <TouchableOpacity
         onPress={() => setShowAddPopup(true)}
@@ -195,7 +263,7 @@ export default function IncomeTab({ token }: IncomeTabProps) {
         </View>
       ) : (
         <ScrollView style={styles.typesList} showsVerticalScrollIndicator={false}>
-          {incomeTypes.map((type) => (
+          {getFilteredTypes().map((type) => (
             <TouchableOpacity
               key={type._id}
               onPress={() => handleTypePress(type)}
@@ -420,5 +488,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#dc2626',
     fontStyle: 'italic',
+  },
+  typeFilterScroll: {
+    flexDirection: 'row',
+  },
+  typeFilterChip: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  activeTypeFilterChip: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  typeFilterChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+  },
+  activeTypeFilterChipText: {
+    color: '#ffffff',
   },
 }); 

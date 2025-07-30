@@ -30,6 +30,7 @@ export default function SavingsTab({ token }: SavingsTabProps) {
   const [selectedType, setSelectedType] = useState<SavingsType | null>(null);
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
+  const [filterType, setFilterType] = useState<string>('all');
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
@@ -74,6 +75,13 @@ export default function SavingsTab({ token }: SavingsTabProps) {
     }
 
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  const getFilteredTypes = () => {
+    if (filterType === 'all') {
+      return savingsTypes;
+    }
+    return savingsTypes.filter(type => type.name === filterType);
   };
 
   const handleTypePress = (type: SavingsType) => {
@@ -123,6 +131,32 @@ export default function SavingsTab({ token }: SavingsTabProps) {
           </View>
         </View>
 
+        {/* Type Filter */}
+        <View style={styles.filterContainer}>
+          <Text style={styles.filterLabel}>Filter by Type:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeFilterScroll}>
+            <TouchableOpacity
+              style={[styles.typeFilterChip, filterType === 'all' && styles.activeTypeFilterChip]}
+              onPress={() => setFilterType('all')}
+            >
+              <Text style={[styles.typeFilterChipText, filterType === 'all' && styles.activeTypeFilterChipText]}>
+                All Types
+              </Text>
+            </TouchableOpacity>
+            {savingsTypes.map((type) => (
+              <TouchableOpacity
+                key={type._id}
+                style={[styles.typeFilterChip, filterType === type.name && styles.activeTypeFilterChip]}
+                onPress={() => setFilterType(type.name)}
+              >
+                <Text style={[styles.typeFilterChipText, filterType === type.name && styles.activeTypeFilterChipText]}>
+                  {type.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
         {/* Entries List */}
         <ScrollView style={styles.entriesList} showsVerticalScrollIndicator={false}>
           {filteredEntries.length === 0 ? (
@@ -158,6 +192,51 @@ export default function SavingsTab({ token }: SavingsTabProps) {
         <Text style={styles.totalAmount}>₹{getTotalSavings().toLocaleString()}</Text>
       </View>
 
+      {/* Date Filters */}
+      <View style={styles.filterContainer}>
+        <Text style={styles.filterLabel}>Filter by Date Range:</Text>
+        <View style={styles.dateFilterRow}>
+          <DatePicker
+            value={filterFromDate}
+            onDateChange={setFilterFromDate}
+            placeholder="From Date"
+            style={{ flex: 1, marginRight: 6 }}
+          />
+          <DatePicker
+            value={filterToDate}
+            onDateChange={setFilterToDate}
+            placeholder="To Date"
+            style={{ flex: 1, marginLeft: 6 }}
+          />
+        </View>
+      </View>
+
+      {/* Type Filter */}
+      <View style={styles.filterContainer}>
+        <Text style={styles.filterLabel}>Filter by Type:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeFilterScroll}>
+          <TouchableOpacity
+            style={[styles.typeFilterChip, filterType === 'all' && styles.activeTypeFilterChip]}
+            onPress={() => setFilterType('all')}
+          >
+            <Text style={[styles.typeFilterChipText, filterType === 'all' && styles.activeTypeFilterChipText]}>
+              All Types
+            </Text>
+          </TouchableOpacity>
+          {savingsTypes.map((type) => (
+            <TouchableOpacity
+              key={type._id}
+              style={[styles.typeFilterChip, filterType === type.name && styles.activeTypeFilterChip]}
+              onPress={() => setFilterType(type.name)}
+            >
+              <Text style={[styles.typeFilterChipText, filterType === type.name && styles.activeTypeFilterChipText]}>
+                {type.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Add Button */}
       <TouchableOpacity
         onPress={() => setShowAddPopup(true)}
@@ -178,7 +257,7 @@ export default function SavingsTab({ token }: SavingsTabProps) {
         </View>
       ) : (
         <ScrollView style={styles.typesList} showsVerticalScrollIndicator={false}>
-          {savingsTypes.map((type) => (
+          {getFilteredTypes().map((type) => (
             <TouchableOpacity
               key={type._id}
               onPress={() => handleTypePress(type)}
@@ -395,5 +474,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#059669',
+  },
+  typeFilterScroll: {
+    flexDirection: 'row',
+  },
+  typeFilterChip: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  activeTypeFilterChip: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  typeFilterChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+  },
+  activeTypeFilterChipText: {
+    color: '#ffffff',
   },
 }); 
