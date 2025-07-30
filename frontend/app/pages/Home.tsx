@@ -702,13 +702,13 @@ export default function Home({ token, onLogout }: HomeProps) {
       </View>
 
       {/* Sync Status */}
-      <View className="flex-row justify-center mb-3">
+      {/* <View className="flex-row justify-center mb-3">
         <Text style={{ fontSize: 12, color: '#64748b' }}>
           {isSyncing ? 'Syncing...' :
             (!hasPending && isOnline && lastSync && (Date.now() - lastSync.getTime() < 60000)) ? 'Up to date' :
             formatLastSyncTime(lastSync)}
         </Text>
-      </View>
+      </View> */}
 
       {/* Date Filters */}
       <View style={styles.filterContainer}>
@@ -727,9 +727,7 @@ export default function Home({ token, onLogout }: HomeProps) {
             style={{ flex: 1, marginLeft: 8 }}
           />
         </View>
-      </View>
-
-      {/* Download and Sync Row */}
+        {/* Download and Sync Row */}
       <View className="flex-row items-center justify-center gap-3 mb-3">
         <TouchableOpacity
           onPress={handleUniversalDownload}
@@ -740,6 +738,9 @@ export default function Home({ token, onLogout }: HomeProps) {
           <Text className="text-white text-center font-bold text-base ml-2">All Data</Text>
         </TouchableOpacity>
       </View>
+      </View>
+
+      
 
       {/* Customer list */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -786,6 +787,14 @@ export default function Home({ token, onLogout }: HomeProps) {
         >
           <FontAwesome5 name="plus" size={16} color="#fff" />
           <Text className="text-white text-center font-bold text-base ml-2">Sale</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => handleNavigation('sales')}
+          style={styles.bottomButton}
+          className="bg-blue-600"
+        >
+          <FontAwesome5 name="list" size={16} color="#fff" />
+          <Text className="text-white text-center font-bold text-base ml-2">View Sales</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowExpensePopup(true)}
@@ -897,7 +906,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     borderRadius: 25,
     shadowColor: '#000',
     shadowOffset: {
@@ -907,7 +916,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 3,
-    maxWidth: 160,
+    maxWidth: 120,
   },
   filterContainer: {
     marginBottom: 16,

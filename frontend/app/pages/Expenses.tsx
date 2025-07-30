@@ -153,8 +153,8 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-blue-50">
-      <View className="flex-1 p-4">
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
         {/* Modernized Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -284,6 +284,20 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#EBF8FF', // equivalent to bg-blue-50
+  },
+  content: {
+    flex: 1,
+    padding: 12,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
   filterContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,

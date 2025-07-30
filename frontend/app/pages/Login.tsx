@@ -83,7 +83,7 @@ export default function Login({ setToken }: LoginProps) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#EBF8FF', // equivalent to bg-blue-50
   },
   keyboardAwareContainer: {
     flex: 1,

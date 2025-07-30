@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -42,11 +43,17 @@ export default function App() {
   };
 
   if (!token) {
-    return <Login setToken={setToken} />;
+    return (
+      <View style={styles.container}>
+        <StatusBar style="dark" backgroundColor="#EBF8FF" />
+        <Login setToken={setToken} />
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
+      <StatusBar style="dark" backgroundColor="#EBF8FF" />
       <Home token={token} onLogout={handleLogout} />
     </View>
   );
@@ -55,6 +62,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#EBF8FF', // equivalent to bg-blue-50
   },
 });

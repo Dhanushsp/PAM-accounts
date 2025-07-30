@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Pressable } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -259,8 +259,8 @@ export default function Products({ onBack, token }: ProductsProps) {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-blue-50">
-      <View className="flex-1 p-4">
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
         {/* Modernized Header */}
         <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
           <Pressable
@@ -292,7 +292,7 @@ export default function Products({ onBack, token }: ProductsProps) {
             <Text className="text-gray-500 text-lg">No products found</Text>
           </View>
         ) : (
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false} style={{ paddingBottom: 80 }}>
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
             {products.map((product) => (
               <View
                 key={product._id}
@@ -347,7 +347,7 @@ export default function Products({ onBack, token }: ProductsProps) {
           }}
         />
       )}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 4, alignItems: 'center' }}>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 12, alignItems: 'center' }}>
         <TouchableOpacity
           style={{
             flexDirection: 'row',
@@ -371,4 +371,21 @@ export default function Products({ onBack, token }: ProductsProps) {
       </View>
     </SafeAreaView>
   );
-} 
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#EBF8FF', // equivalent to bg-blue-50
+  },
+  content: {
+    flex: 1,
+    padding: 12,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+}); 

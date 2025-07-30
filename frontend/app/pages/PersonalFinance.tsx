@@ -128,7 +128,7 @@ export default function PersonalFinance({ onBack, token }: PersonalFinanceProps)
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.mainContent}>
+      <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -178,7 +178,11 @@ export default function PersonalFinance({ onBack, token }: PersonalFinanceProps)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#EBF8FF', // equivalent to bg-blue-50
+  },
+  content: {
+    flex: 1,
+    padding: 12,
   },
   mainContent: {
     flex: 1,

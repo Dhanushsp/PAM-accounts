@@ -213,7 +213,7 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.mainContent}>
+      <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <Pressable
@@ -265,7 +265,7 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
                 <Text style={styles.emptyText}>No vendors found</Text>
               </View>
             ) : (
-              <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 {vendors.map((vendor) => (
                   <View key={vendor._id} style={styles.vendorCard}>
                     <View style={styles.vendorCardContent}>
@@ -481,7 +481,11 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#eff6ff', // blue-50
+    backgroundColor: '#EBF8FF', // equivalent to bg-blue-50
+  },
+  content: {
+    flex: 1,
+    padding: 12,
   },
   mainContent: {
     flex: 1,
@@ -569,6 +573,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   vendorCard: {
     backgroundColor: '#ffffff',

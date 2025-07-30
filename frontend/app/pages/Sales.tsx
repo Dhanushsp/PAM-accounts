@@ -176,8 +176,9 @@ export default function Sales({ token, onBack }: SalesProps) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+      <View style={styles.content}>
+        {/* Header */}
+        <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color="#2563eb" />
         </TouchableOpacity>
@@ -219,7 +220,7 @@ export default function Sales({ token, onBack }: SalesProps) {
             style={{ flex: 1, marginLeft: 8 }}
           />
         </View>
-        <View style={styles.filterRow}>
+        {/* <View style={styles.filterRow}>
           <TextInput
             style={styles.filterInput}
             placeholder="Sale Type (kg/pack)"
@@ -240,11 +241,11 @@ export default function Sales({ token, onBack }: SalesProps) {
           <TouchableOpacity onPress={clearFilters} style={styles.clearButton}>
             <Text style={styles.clearButtonText}>Clear Filters</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
       </View>
 
-      {/* Sales List */}
-      <ScrollView style={styles.salesList} showsVerticalScrollIndicator={false}>
+             {/* Sales List */}
+       <ScrollView style={styles.salesList} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color="#2563eb" />
@@ -314,16 +315,21 @@ export default function Sales({ token, onBack }: SalesProps) {
               </View>
             )}
           </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+                 )}
+       </ScrollView>
+       </View>
+     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#EBF8FF', // equivalent to bg-blue-50
+  },
+  content: {
+    flex: 1,
+    padding: 12,
   },
   header: {
     flexDirection: 'row',
@@ -420,7 +426,9 @@ const styles = StyleSheet.create({
   },
   salesList: {
     flex: 1,
-    paddingHorizontal: 16,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   centerContainer: {
     flex: 1,
