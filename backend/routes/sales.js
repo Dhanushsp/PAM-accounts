@@ -10,6 +10,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const { 
       customerId, 
+      customerName,
       fromDate, 
       toDate, 
       saleType, 
@@ -20,9 +21,30 @@ router.get('/', auth, async (req, res) => {
 
     let query = {};
     
-    // Filter by customer
+    // Filter by customer ID or customer name
     if (customerId) {
       query.customerId = customerId;
+    } else if (customerName) {
+      // Find customers by name and get their IDs
+      const customers = await Customer.find({
+        name: { $regex: customerName, $options: 'i' }
+      }).select('_id');
+      const customerIds = customers.map(c => c._id);
+      if (customerIds.length > 0) {
+        query.customerId = { $in: customerIds };
+      } else {
+        // If no customers found with that name, return empty results
+        return res.json({
+          sales: [],
+          pagination: {
+            currentPage: parseInt(page),
+            totalPages: 0,
+            totalSales: 0,
+            hasNext: false,
+            hasPrev: false
+          }
+        });
+      }
     }
     
     // Filter by date range

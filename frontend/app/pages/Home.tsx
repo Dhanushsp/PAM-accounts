@@ -67,11 +67,32 @@ export default function Home({ token, onLogout }: HomeProps) {
         headers: { Authorization: token },
       });
       
-      // Apply client-side sorting as backup
-      let sortedCustomers = [...res.data];
+      // Apply client-side filtering and sorting
+      let filteredCustomers = [...res.data];
       
+      // Apply date range filtering
+      if (filterFromDate || filterToDate) {
+        filteredCustomers = filteredCustomers.filter(customer => {
+          const latestPurchaseDate = getLatestPurchaseDate(customer);
+          if (!latestPurchaseDate) return false; // Exclude customers with no purchases
+          
+          const purchaseDate = new Date(latestPurchaseDate);
+          
+          if (filterFromDate && purchaseDate < filterFromDate) {
+            return false;
+          }
+          
+          if (filterToDate && purchaseDate > filterToDate) {
+            return false;
+          }
+          
+          return true;
+        });
+      }
+      
+      // Apply sorting
       if (sort === 'recent') {
-        sortedCustomers.sort((a, b) => {
+        filteredCustomers.sort((a, b) => {
           const dateA = getLatestPurchaseDate(a);
           const dateB = getLatestPurchaseDate(b);
           if (!dateA && !dateB) return 0;
@@ -80,7 +101,7 @@ export default function Home({ token, onLogout }: HomeProps) {
           return dateB.getTime() - dateA.getTime(); // descending (recent first)
         });
       } else if (sort === 'oldest') {
-        sortedCustomers.sort((a, b) => {
+        filteredCustomers.sort((a, b) => {
           const dateA = getLatestPurchaseDate(a);
           const dateB = getLatestPurchaseDate(b);
           if (!dateA && !dateB) return 0;
@@ -89,12 +110,12 @@ export default function Home({ token, onLogout }: HomeProps) {
           return dateA.getTime() - dateB.getTime(); // ascending (oldest first)
         });
       } else if (sort === 'credit') {
-        sortedCustomers.sort((a, b) => b.credit - a.credit); // descending (highest credit first)
+        filteredCustomers.sort((a, b) => b.credit - a.credit); // descending (highest credit first)
       }
       
-      setCustomers(sortedCustomers);
+      setCustomers(filteredCustomers);
         // Cache the data
-        await saveData(KEYS.customers, sortedCustomers);
+        await saveData(KEYS.customers, filteredCustomers);
 
       if (selectedCustomer) {
         const customerRes = await axios.get(`${API_BASE_URL}/api/customers/${selectedCustomer._id}`, {
@@ -112,6 +133,26 @@ export default function Home({ token, onLogout }: HomeProps) {
             filteredCustomers = cachedCustomers.filter(c => 
               c.name.toLowerCase().includes(search.toLowerCase())
             );
+          }
+          
+          // Apply date range filtering to cached data
+          if (filterFromDate || filterToDate) {
+            filteredCustomers = filteredCustomers.filter(customer => {
+              const latestPurchaseDate = getLatestPurchaseDate(customer);
+              if (!latestPurchaseDate) return false; // Exclude customers with no purchases
+              
+              const purchaseDate = new Date(latestPurchaseDate);
+              
+              if (filterFromDate && purchaseDate < filterFromDate) {
+                return false;
+              }
+              
+              if (filterToDate && purchaseDate > filterToDate) {
+                return false;
+              }
+              
+              return true;
+            });
           }
           
           // Apply sorting to cached data
@@ -573,7 +614,7 @@ export default function Home({ token, onLogout }: HomeProps) {
 
   useEffect(() => {
     fetchCustomers();
-  }, [search, sort]);
+  }, [search, sort, filterFromDate, filterToDate]);
 
   // Handle back button press
   useEffect(() => {
@@ -711,7 +752,7 @@ export default function Home({ token, onLogout }: HomeProps) {
       </View> */}
 
       {/* Date Filters */}
-      <View style={styles.filterContainer}>
+      {/* <View style={styles.filterContainer}>
         <Text style={styles.filterLabel}>Filter by Date Range:</Text>
         <View style={styles.dateFilterRow}>
           <DatePicker
@@ -727,7 +768,31 @@ export default function Home({ token, onLogout }: HomeProps) {
             style={{ flex: 1, marginLeft: 8 }}
           />
         </View>
-        {/* Download and Sync Row */}
+        {(filterFromDate || filterToDate) && (
+          <TouchableOpacity
+            onPress={() => {
+              setFilterFromDate(null);
+              setFilterToDate(null);
+            }}
+            style={{
+              backgroundColor: '#F3F4F6',
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              borderRadius: 8,
+              alignSelf: 'center',
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{
+              color: '#6B7280',
+              fontSize: 14,
+              fontWeight: '500',
+            }}>Clear Date Filter</Text>
+          </TouchableOpacity>
+        )}
+        
+      </View> */}
+      {/* Download and Sync Row */}
       <View className="flex-row items-center justify-center gap-3 mb-3">
         <TouchableOpacity
           onPress={handleUniversalDownload}
@@ -737,7 +802,6 @@ export default function Home({ token, onLogout }: HomeProps) {
           <FontAwesome5 name="download" size={16} color="#fff" />
           <Text className="text-white text-center font-bold text-base ml-2">All Data</Text>
         </TouchableOpacity>
-      </View>
       </View>
 
       

@@ -71,6 +71,7 @@ export default function Sales({ token, onBack }: SalesProps) {
   const [filterSaleType, setFilterSaleType] = useState('');
   const [filterPaymentMethod, setFilterPaymentMethod] = useState('');
   const [filterCustomerId, setFilterCustomerId] = useState('');
+  const [filterCustomerName, setFilterCustomerName] = useState('');
   const [customers, setCustomers] = useState<Array<{ _id: string; name: string }>>([]);
   
   const insets = useSafeAreaInsets();
@@ -84,7 +85,7 @@ export default function Sales({ token, onBack }: SalesProps) {
 
   useEffect(() => {
     fetchSales();
-  }, [currentPage, filterFromDate, filterToDate, filterSaleType, filterPaymentMethod, filterCustomerId]);
+  }, [currentPage, filterFromDate, filterToDate, filterSaleType, filterPaymentMethod, filterCustomerId, filterCustomerName]);
 
   useEffect(() => {
     fetchSummary();
@@ -114,6 +115,7 @@ export default function Sales({ token, onBack }: SalesProps) {
       if (filterSaleType) params.append('saleType', filterSaleType);
       if (filterPaymentMethod) params.append('paymentMethod', filterPaymentMethod);
       if (filterCustomerId) params.append('customerId', filterCustomerId);
+      if (filterCustomerName) params.append('customerName', filterCustomerName);
 
       const response = await axios.get<SalesResponse>(`${BACKEND_URL}/api/sales?${params}`, {
         headers: { Authorization: token }
@@ -155,6 +157,7 @@ export default function Sales({ token, onBack }: SalesProps) {
     setFilterSaleType('');
     setFilterPaymentMethod('');
     setFilterCustomerId('');
+    setFilterCustomerName('');
     setCurrentPage(1);
   };
 
@@ -186,24 +189,6 @@ export default function Sales({ token, onBack }: SalesProps) {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Summary Cards */}
-      {summary && (
-        <View style={styles.summaryContainer}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total Sales</Text>
-            <Text style={styles.summaryValue}>{summary.totalSales}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total Revenue</Text>
-            <Text style={styles.summaryValue}>₹{summary.totalRevenue.toLocaleString()}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Amount Received</Text>
-            <Text style={styles.summaryValue}>₹{summary.totalAmountReceived.toLocaleString()}</Text>
-          </View>
-        </View>
-      )}
-
       {/* Filters */}
       <View style={styles.filtersContainer}>
         <View style={styles.filterRow}>
@@ -220,6 +205,39 @@ export default function Sales({ token, onBack }: SalesProps) {
             style={{ flex: 1, marginLeft: 8 }}
           />
         </View>
+        
+        {/* Customer Name Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <MaterialIcons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by customer name..."
+              value={filterCustomerName}
+              onChangeText={setFilterCustomerName}
+              placeholderTextColor="#9CA3AF"
+            />
+            {filterCustomerName.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setFilterCustomerName('')}
+                style={styles.clearSearchButton}
+              >
+                <MaterialIcons name="close" size={18} color="#6B7280" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+        
+        {/* Clear Filters Button */}
+        {(filterFromDate || filterToDate || filterCustomerName) && (
+          <TouchableOpacity
+            onPress={clearFilters}
+            style={styles.clearFiltersButton}
+          >
+            <MaterialIcons name="clear" size={16} color="#DC2626" />
+            <Text style={styles.clearFiltersText}>Clear All Filters</Text>
+          </TouchableOpacity>
+        )}
         {/* <View style={styles.filterRow}>
           <TextInput
             style={styles.filterInput}
@@ -244,7 +262,25 @@ export default function Sales({ token, onBack }: SalesProps) {
         </View> */}
       </View>
 
-             {/* Sales List */}
+      {/* Summary Cards */}
+      {summary && (
+        <View style={styles.summaryContainer}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Total Sales</Text>
+            <Text style={styles.summaryValue}>{summary.totalSales}</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Total Revenue</Text>
+            <Text style={styles.summaryValue}>₹{summary.totalRevenue.toLocaleString()}</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Amount Received</Text>
+            <Text style={styles.summaryValue}>₹{summary.totalAmountReceived.toLocaleString()}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Sales List */}
        <ScrollView style={styles.salesList} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={styles.centerContainer}>
@@ -397,7 +433,51 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 16,
+  },
+  searchContainer: {
     marginBottom: 12,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#374151',
+    paddingVertical: 8,
+  },
+  clearSearchButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  clearFiltersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
+  },
+  clearFiltersText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 4,
   },
   filterInput: {
     flex: 1,
