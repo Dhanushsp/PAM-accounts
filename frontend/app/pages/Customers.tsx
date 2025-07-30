@@ -5,6 +5,7 @@ import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddCustomerPopup from '../components/AddCustomerPopup';
+import DeleteAuthPopup from '../components/DeleteAuthPopup';
 import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -32,6 +33,8 @@ export default function Customers({ onBack, token }: CustomersProps) {
     credit: ''
   });
   const [showAddCustomerPopup, setShowAddCustomerPopup] = useState(false);
+  const [showDeleteAuthPopup, setShowDeleteAuthPopup] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const insets = useSafeAreaInsets();
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
@@ -120,29 +123,32 @@ export default function Customers({ onBack, token }: CustomersProps) {
   };
 
   const handleDelete = (customer: Customer) => {
-    Alert.alert(
-      'Delete Customer',
-      `Are you sure you want to delete "${customer.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await axios.delete(`${BACKEND_URL}/api/customers/${customer._id}`, {
-                headers: { Authorization: token }
-              });
-              Alert.alert('Success', 'Customer deleted successfully');
-              fetchCustomers();
-            } catch (error) {
-              console.error('Error deleting customer:', error);
-              Alert.alert('Error', 'Failed to delete customer');
-            }
-          }
-        }
-      ]
-    );
+    setCustomerToDelete(customer);
+    setShowDeleteAuthPopup(true);
+  };
+
+  const handleDeleteConfirm = async (mobile: string, password: string) => {
+    if (!customerToDelete) return;
+
+    try {
+      await axios.delete(`${BACKEND_URL}/api/customers/${customerToDelete._id}`, {
+        headers: { Authorization: token },
+        data: { mobile, password }
+      });
+      Alert.alert('Success', 'Customer deleted successfully');
+      setShowDeleteAuthPopup(false);
+      setCustomerToDelete(null);
+      fetchCustomers();
+    } catch (error: any) {
+      console.error('Error deleting customer:', error);
+      if (error.response?.status === 401) {
+        Alert.alert('Error', 'Invalid credentials. Deletion denied.');
+      } else {
+        Alert.alert('Error', 'Failed to delete customer');
+      }
+      setShowDeleteAuthPopup(false);
+      setCustomerToDelete(null);
+    }
   };
 
   if (editingCustomer) {
@@ -273,6 +279,19 @@ export default function Customers({ onBack, token }: CustomersProps) {
           token={token}
           onClose={() => setShowAddCustomerPopup(false)}
           onCustomerAdded={fetchCustomers}
+        />
+      )}
+
+      {/* Delete Authentication Popup */}
+      {showDeleteAuthPopup && customerToDelete && (
+        <DeleteAuthPopup
+          onClose={() => {
+            setShowDeleteAuthPopup(false);
+            setCustomerToDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Customer"
+          message={`Are you sure you want to delete "${customerToDelete.name}"? Please enter your credentials to confirm.`}
         />
       )}
 

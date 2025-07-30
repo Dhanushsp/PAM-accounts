@@ -1,6 +1,7 @@
 import express from "express";
 import Customer from "../models/Customer.js";
 import auth from "../middleware/auth.js";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -132,5 +133,56 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// PUT /api/customers/:id - Update customer
+router.put('/:id', async (req, res) => {
+  try {
+    const { name, contact, credit } = req.body;
+    const customer = await Customer.findByIdAndUpdate(
+      req.params.id,
+      { name, contact, credit },
+      { new: true }
+    );
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    res.json(customer);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update customer' });
+  }
+});
+
+// DELETE /api/customers/:id - Delete customer with authentication
+router.delete('/:id', async (req, res) => {
+  try {
+    const { mobile, password } = req.body;
+    
+    // Validate authentication credentials
+    if (!mobile || !password) {
+      return res.status(400).json({ message: 'Mobile and password are required for deletion' });
+    }
+
+    // Check admin credentials with bcrypt
+    const Admin = mongoose.model('Admin');
+    const admin = await Admin.findOne({ mobile });
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid credentials. Deletion denied.' });
+    }
+
+    // Compare password with bcrypt
+    const bcrypt = (await import('bcrypt')).default;
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials. Deletion denied.' });
+    }
+
+    const customer = await Customer.findByIdAndDelete(req.params.id);
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
+    
+    res.json({ message: 'Customer deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting customer:', err);
+    res.status(500).json({ message: 'Failed to delete customer' });
+  }
+});
 
 export default router;

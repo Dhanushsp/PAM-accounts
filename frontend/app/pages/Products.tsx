@@ -5,6 +5,7 @@ import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddProductPopup from '../components/AddProductPopup';
+import DeleteAuthPopup from '../components/DeleteAuthPopup';
 import { useSync } from '../lib/useSync';
 import { getPendingActions, saveData, KEYS } from '../lib/storage';
 import NetInfo from '@react-native-community/netinfo';
@@ -37,6 +38,8 @@ export default function Products({ onBack, token }: ProductsProps) {
     pricePerKg: ''
   });
   const [showAddProductPopup, setShowAddProductPopup] = useState(false);
+  const [showDeleteAuthPopup, setShowDeleteAuthPopup] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const insets = useSafeAreaInsets();
 
   const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
@@ -117,29 +120,32 @@ export default function Products({ onBack, token }: ProductsProps) {
   };
 
   const handleDelete = (product: Product) => {
-    Alert.alert(
-      'Delete Product',
-      `Are you sure you want to delete "${product.productName}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await axios.delete(`${BACKEND_URL}/api/products/${product._id}`, {
-                headers: { Authorization: token }
-              });
-              Alert.alert('Success', 'Product deleted successfully');
-              fetchProducts(); // Refresh the list
-            } catch (error) {
-              console.error('Error deleting product:', error);
-              Alert.alert('Error', 'Failed to delete product');
-            }
-          }
-        }
-      ]
-    );
+    setProductToDelete(product);
+    setShowDeleteAuthPopup(true);
+  };
+
+  const handleDeleteConfirm = async (mobile: string, password: string) => {
+    if (!productToDelete) return;
+
+    try {
+      await axios.delete(`${BACKEND_URL}/api/products/${productToDelete._id}`, {
+        headers: { Authorization: token },
+        data: { mobile, password }
+      });
+      Alert.alert('Success', 'Product deleted successfully');
+      setShowDeleteAuthPopup(false);
+      setProductToDelete(null);
+      fetchProducts();
+    } catch (error: any) {
+      console.error('Error deleting product:', error);
+      if (error.response?.status === 401) {
+        Alert.alert('Error', 'Invalid credentials. Deletion denied.');
+      } else {
+        Alert.alert('Error', 'Failed to delete product');
+      }
+      setShowDeleteAuthPopup(false);
+      setProductToDelete(null);
+    }
   };
 
   const calculatePricePerKg = () => {
@@ -345,6 +351,19 @@ export default function Products({ onBack, token }: ProductsProps) {
             setShowAddProductPopup(false);
             fetchProducts();
           }}
+        />
+      )}
+
+      {/* Delete Authentication Popup */}
+      {showDeleteAuthPopup && productToDelete && (
+        <DeleteAuthPopup
+          onClose={() => {
+            setShowDeleteAuthPopup(false);
+            setProductToDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Product"
+          message={`Are you sure you want to delete "${productToDelete.productName}"? Please enter your credentials to confirm.`}
         />
       )}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 12, alignItems: 'center' }}>
