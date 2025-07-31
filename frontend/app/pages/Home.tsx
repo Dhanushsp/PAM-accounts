@@ -17,6 +17,7 @@ import * as Sharing from 'expo-sharing';
 import AddExpensePopup from '../components/AddExpensePopup';
 import CustomersPage from './Customers';
 import Expenses from './Expenses';
+import AIChatbot from '../components/AIChatbot';
 import { useSync } from '../lib/useSync';
 import { getPendingActions, saveData, getData, addPendingAction, KEYS } from '../lib/storage';
 import { getToken } from '../lib/auth';
@@ -51,6 +52,7 @@ export default function Home({ token, onLogout }: HomeProps) {
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
   const [showExpensePopup, setShowExpensePopup] = useState(false);
+  const [showAIChatbot, setShowAIChatbot] = useState(false);
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
   const insets = useSafeAreaInsets();
@@ -868,6 +870,14 @@ export default function Home({ token, onLogout }: HomeProps) {
           <FontAwesome5 name="money-bill-wave" size={16} color="#fff" />
           <Text className="text-white text-center font-bold text-base ml-2">+ Expense</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setShowAIChatbot(true)}
+          style={styles.bottomButton}
+          className="bg-purple-600"
+        >
+          <FontAwesome5 name="robot" size={16} color="#fff" />
+          <Text className="text-white text-center font-bold text-base ml-2">AI Assistant</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Popups and SideNav remain unchanged */}
@@ -903,6 +913,14 @@ export default function Home({ token, onLogout }: HomeProps) {
         <AddExpensePopup
           token={token}
           onClose={() => setShowExpensePopup(false)}
+        />
+      )}
+
+      {showAIChatbot && (
+        <AIChatbot
+          token={token}
+          isVisible={showAIChatbot}
+          onClose={() => setShowAIChatbot(false)}
         />
       )}
 
