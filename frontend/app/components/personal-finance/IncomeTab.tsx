@@ -48,9 +48,7 @@ export default function IncomeTab({ token }: IncomeTabProps) {
   const fetchIncomeTypes = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${BACKEND_URL}/api/income-types`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/income-types`);
       setIncomeTypes(response.data);
     } catch (error) {
       console.error('Error fetching income types:', error);

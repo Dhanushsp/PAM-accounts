@@ -56,9 +56,7 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
 
   const fetchAllItems = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/items`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/items`);
       setAvailableItems(response.data.items || []);
     } catch (error) {
       console.error('Error fetching items:', error);
@@ -99,13 +97,11 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
 
     setLoading(true);
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/vendors`, {
+      const response = await apiClient.post(`/api/vendors`, {
         name: form.name.trim(),
         contact: form.contact.trim(),
         credit: parseFloat(form.credit) || 0,
         items: form.items
-      }, {
-        headers: { Authorization: token }
       });
 
       Alert.alert('Success', 'Vendor added successfully!');

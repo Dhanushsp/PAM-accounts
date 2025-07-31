@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import apiClient from '../../lib/axios-config';
 import AddProductPopup from '../components/AddProductPopup';
 import DeleteAuthPopup from '../components/DeleteAuthPopup';
 import { useSync } from '../lib/useSync';
@@ -73,9 +74,7 @@ export default function Products({ onBack, token }: ProductsProps) {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${BACKEND_URL}/api/products`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/products`);
       setProducts(response.data);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -128,7 +127,7 @@ export default function Products({ onBack, token }: ProductsProps) {
     if (!productToDelete) return;
 
     try {
-      await axios.delete(`${BACKEND_URL}/api/products/${productToDelete._id}`, {
+      await apiClient.delete(`/api/products/${productToDelete._id}`, {
         headers: { Authorization: token },
         data: { mobile, password }
       });
@@ -168,17 +167,15 @@ export default function Products({ onBack, token }: ProductsProps) {
     const productActions = pending.filter(a => a.type && a.entity === 'product');
     for (const action of productActions) {
       if (action.op === 'add') {
-        await axios.post(`${BACKEND_URL}/api/addproducts`, action.data, {
+        await apiClient.post(`/api/addproducts`, action.data, {
           headers: { 'Content-Type': 'application/json', Authorization: token }
         });
       } else if (action.op === 'edit') {
-        await axios.put(`${BACKEND_URL}/api/products/${action.id}`, action.data, {
+        await apiClient.put(`/api/products/${action.id}`, action.data, {
           headers: { 'Content-Type': 'application/json', Authorization: token }
         });
       } else if (action.op === 'delete') {
-        await axios.delete(`${BACKEND_URL}/api/products/${action.id}`, {
-          headers: { Authorization: token }
-        });
+        await apiClient.delete(`/api/products/${action.id}`);
       }
     }
     // After syncing, refresh products and cache
@@ -207,56 +204,55 @@ export default function Products({ onBack, token }: ProductsProps) {
 
   if (editingProduct) {
     return (
-      <SafeAreaView className="flex-1 bg-blue-50">
-        <View className="flex-1 p-4">
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
           {/* Modernized Header */}
-          <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
+          <View style={styles.header}>
             <Pressable
               onPress={() => setEditingProduct(null)}
-              className="bg-gray-100 rounded-full p-2"
-              style={{ elevation: 2 }}
+              style={styles.backButton}
             >
               <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
             </Pressable>
-            <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
+            <Text style={styles.headerTitle}>
               Edit Product
             </Text>
-            <View style={{ width: 40 }} />
+            <View style={styles.headerSpacer} />
           </View>
 
           {/* Edit Form */}
-          <View className="bg-white rounded-xl p-6 shadow-sm">
+          <View style={styles.editForm}>
             <TextInput
               placeholder="Product Name"
               value={editForm.productName}
               onChangeText={(text) => setEditForm(prev => ({ ...prev, productName: text }))}
-              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+              style={styles.input}
             />
             <TextInput
               placeholder="Price per Pack"
               value={editForm.pricePerPack}
               onChangeText={(text) => setEditForm(prev => ({ ...prev, pricePerPack: text }))}
               keyboardType="numeric"
-              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+              style={styles.input}
             />
             <TextInput
               placeholder="Kgs per Pack"
               value={editForm.kgsPerPack}
               onChangeText={(text) => setEditForm(prev => ({ ...prev, kgsPerPack: text }))}
               keyboardType="numeric"
-              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+              style={styles.input}
             />
             <TextInput
               placeholder="Price per Kg"
               value={editForm.pricePerKg}
               editable={false}
-              className="w-full mb-6 px-4 py-3 rounded-xl border border-gray-100 bg-gray-100 text-gray-500 text-base"
+              style={styles.disabledInput}
             />
             <TouchableOpacity
               onPress={handleUpdate}
-              className="w-full bg-blue-600 py-3 rounded-xl shadow-sm"
+              style={styles.updateButton}
             >
-              <Text className="text-white text-center font-semibold text-lg">Update Product</Text>
+              <Text style={styles.updateButtonText}>Update Product</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -406,5 +402,162 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
+  },
+  // Header Styles
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 24,
+    marginTop: 4,
+  },
+  backButton: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 2,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1d4ed8',
+    flex: 1,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  downloadButton: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 2,
+  },
+  // Edit Form Styles
+  editForm: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  input: {
+    width: '100%',
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#1f2937',
+    fontSize: 16,
+  },
+  disabledInput: {
+    width: '100%',
+    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+    backgroundColor: '#f3f4f6',
+    color: '#6b7280',
+    fontSize: 16,
+  },
+  updateButton: {
+    width: '100%',
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  updateButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 18,
+  },
+  // Product List Styles
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#6b7280',
+    fontSize: 18,
+  },
+  emptyText: {
+    color: '#6b7280',
+    fontSize: 18,
+  },
+  productCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  productCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  productDetails: {
+    gap: 4,
+  },
+  productDetailText: {
+    fontSize: 14,
+    color: '#4b5563',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginLeft: 8,
+  },
+  editButton: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 1,
+  },
+  deleteButton: {
+    backgroundColor: '#fee2e2',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 1,
   },
 }); 

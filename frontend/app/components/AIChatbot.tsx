@@ -59,15 +59,9 @@ export default function AIChatbot({ token, isVisible, onClose }: AIChatbotProps)
   const fetchAppData = async () => {
     try {
       const [expensesRes, salesRes, categoriesRes] = await Promise.all([
-        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/expenses`, {
-          headers: { Authorization: token }
-        }),
-        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/sales`, {
-          headers: { Authorization: token }
-        }),
-        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`, {
-          headers: { Authorization: token }
-        })
+        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/expenses`),
+        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/sales`),
+        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`)
       ]);
 
       setAppData({
@@ -107,9 +101,6 @@ export default function AIChatbot({ token, isVisible, onClose }: AIChatbotProps)
           message: text.trim(),
           appData: appData,
           context: messages.slice(-5) // Last 5 messages for context
-        },
-        {
-          headers: { Authorization: token }
         }
       );
 

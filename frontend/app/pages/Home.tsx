@@ -3,7 +3,7 @@ import { View, Text, TextInput, ScrollView, TouchableOpacity, BackHandler, Alert
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 
-import axios from 'axios';
+import apiClient from '../../lib/axios-config';
 import { API_BASE_URL } from '../../lib/config';
 import AddCustomerPopup from '../components/AddCustomerPopup';
 import AddProductPopup from '../components/AddProductPopup';
@@ -65,8 +65,8 @@ export default function Home({ token, onLogout }: HomeProps) {
       
       if (isOnline) {
         // Online: fetch from API and cache
-      const res = await axios.get(`${API_BASE_URL}/api/customers?search=${search}`, {
-        headers: { Authorization: token },
+      const res = await apiClient.get(`/api/customers?search=${search}`, {
+        timeout: 15000, // 15 seconds timeout for customer fetch
       });
       
       // Apply client-side filtering and sorting
@@ -120,9 +120,7 @@ export default function Home({ token, onLogout }: HomeProps) {
         await saveData(KEYS.customers, filteredCustomers);
 
       if (selectedCustomer) {
-        const customerRes = await axios.get(`${API_BASE_URL}/api/customers/${selectedCustomer._id}`, {
-          headers: { Authorization: token },
-        });
+        const customerRes = await apiClient.get(`/api/customers/${selectedCustomer._id}`);
         setSelectedCustomer(customerRes.data);
         }
       } else {
@@ -200,9 +198,7 @@ export default function Home({ token, onLogout }: HomeProps) {
 
   const fetchCustomerDetails = async (customerId: string) => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/customers/${customerId}`, {
-        headers: { Authorization: token },
-      });
+          const res = await apiClient.get(`/api/customers/${customerId}`);
       setSelectedCustomer(res.data);
     } catch (error: any) {
       console.error('Error fetching customer details:', error);
@@ -320,9 +316,7 @@ export default function Home({ token, onLogout }: HomeProps) {
 
       // ===== PRODUCTS SECTION =====
       try {
-        const productsResponse = await axios.get(`${API_BASE_URL}/api/products`, {
-          headers: { Authorization: token }
-        });
+        const productsResponse = await apiClient.get(`/api/products`);
         const productsData = productsResponse.data.map((p: any) => ({
           'Product Name': p.productName,
           'Price per Pack (₹)': p.pricePerPack,
@@ -351,9 +345,7 @@ export default function Home({ token, onLogout }: HomeProps) {
 
       // ===== EXPENSES SECTION =====
       try {
-        const expensesResponse = await axios.get(`${API_BASE_URL}/api/expenses`, {
-          headers: { Authorization: token }
-        });
+        const expensesResponse = await apiClient.get(`/api/expenses`);
         const expensesData = expensesResponse.data.map((e: any) => ({
           'Date': new Date(e.date).toLocaleDateString(),
           'Category': e.category,
@@ -405,10 +397,10 @@ export default function Home({ token, onLogout }: HomeProps) {
       // ===== PERSONAL FINANCE SECTION =====
       try {
         const [savingsResponse, incomeResponse, payablesResponse, moneyLentResponse] = await Promise.all([
-          axios.get(`${API_BASE_URL}/api/savings-types`, { headers: { Authorization: token } }),
-          axios.get(`${API_BASE_URL}/api/income-types`, { headers: { Authorization: token } }),
-          axios.get(`${API_BASE_URL}/api/payable-types`, { headers: { Authorization: token } }),
-          axios.get(`${API_BASE_URL}/api/money-lent-types`, { headers: { Authorization: token } })
+          apiClient.get(`/api/savings-types`),
+          apiClient.get(`/api/income-types`),
+          apiClient.get(`/api/payable-types`),
+          apiClient.get(`/api/money-lent-types`)
         ]);
 
         // Create a comprehensive Personal Finance sheet
@@ -474,8 +466,8 @@ export default function Home({ token, onLogout }: HomeProps) {
       // ===== PURCHASE MANAGEMENT SECTION =====
       try {
         const [vendorsResponse, purchasesResponse] = await Promise.all([
-          axios.get(`${API_BASE_URL}/api/vendors`, { headers: { Authorization: token } }),
-          axios.get(`${API_BASE_URL}/api/purchases`, { headers: { Authorization: token } })
+          apiClient.get(`/api/vendors`),
+          apiClient.get(`/api/purchases`)
         ]);
 
         // Create a comprehensive Purchase Management sheet
@@ -575,32 +567,32 @@ export default function Home({ token, onLogout }: HomeProps) {
     // Sync products
     for (const action of pending.filter(a => a.entity === 'product')) {
       if (action.op === 'add') {
-        await axios.post(`${API_BASE_URL}/api/addproducts`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+        await apiClient.post(`/api/addproducts`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
       } else if (action.op === 'edit') {
-        await axios.put(`${API_BASE_URL}/api/products/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+        await apiClient.put(`/api/products/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
       } else if (action.op === 'delete') {
-        await axios.delete(`${API_BASE_URL}/api/products/${action.id}`, { headers: { Authorization: token } });
+                  await apiClient.delete(`/api/products/${action.id}`);
       }
     }
     // Sync customers
     for (const action of pending.filter(a => a.entity === 'customer')) {
       if (action.op === 'add') {
-        await axios.post(`${API_BASE_URL}/api/customers`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+        await apiClient.post(`/api/customers`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
       } else if (action.op === 'edit') {
-        await axios.put(`${API_BASE_URL}/api/customers/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+        await apiClient.put(`/api/customers/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
       } else if (action.op === 'delete') {
-        await axios.delete(`${API_BASE_URL}/api/customers/${action.id}`, { headers: { Authorization: token } });
+                  await apiClient.delete(`/api/customers/${action.id}`);
       }
     }
     // Sync expenses
     for (const action of pending.filter(a => a.entity === 'expense')) {
       try {
         if (action.op === 'add') {
-          await axios.post(`${API_BASE_URL}/api/expenses`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+          await apiClient.post(`/api/expenses`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
         } else if (action.op === 'edit') {
-          await axios.put(`${API_BASE_URL}/api/expenses/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+          await apiClient.put(`/api/expenses/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
         } else if (action.op === 'delete') {
-          await axios.delete(`${API_BASE_URL}/api/expenses/${action.id}`, { headers: { Authorization: token } });
+          await apiClient.delete(`/api/expenses/${action.id}`);
         }
       } catch (error) {
         console.error('Error syncing expense action:', error);
@@ -687,23 +679,21 @@ export default function Home({ token, onLogout }: HomeProps) {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
       {/* Modernized Top Navbar */}
-      <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-4 mt-1" style={{ elevation: 3 }}>
+      <View style={styles.topNavbar}>
         <Pressable
           onPress={() => setIsSideNavOpen(true)}
-          className="bg-gray-100 rounded-full p-2 mr-2"
-          style={{ elevation: 2 }}
+          style={styles.menuButton}
         >
           <MaterialIcons name="menu" size={24} color="#2563EB" />
         </Pressable>
-        <Text className="text-2xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
-          PAM<Text className="text-blue-500">-Accounts</Text>
+        <Text style={styles.appTitle}>
+          PAM<Text style={styles.appTitleAccent}>-Accounts</Text>
         </Text>
           {/* Sync Button and Status */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={styles.headerButtons}>
         <Pressable
           onPress={onLogout}
-          className="bg-red-100 rounded-full p-2 ml-2"
-          style={{ elevation: 2 }}
+          style={styles.logoutButton}
         >
           <MaterialIcons name="logout" size={22} color="#dc2626" />
         </Pressable>
@@ -712,7 +702,7 @@ export default function Home({ token, onLogout }: HomeProps) {
 
       {/* Search */}
       <TextInput
-        className="border border-gray-200 rounded-xl px-4 py-3 text-black bg-white mb-4 text-base shadow-sm"
+        style={styles.searchInput}
         placeholder="🔍 Search by customer name"
         value={search}
         onChangeText={setSearch}
@@ -720,17 +710,16 @@ export default function Home({ token, onLogout }: HomeProps) {
       />
 
       {/* Modernized Filter Buttons */}
-      <View className="flex-row justify-center gap-3 mb-4">
+      <View style={styles.filterButtonsContainer}>
         {['Recent', 'Oldest', 'Credit'].map((type) => {
           const selected = sort === type.toLowerCase();
           return (
             <TouchableOpacity
               key={type}
               onPress={() => setSort(type.toLowerCase())}
-              className={`px-5 py-2 rounded-full shadow-sm ${selected ? 'bg-blue-600' : 'bg-gray-100'}`}
-              style={{ elevation: selected ? 2 : 0 }}
+              style={[styles.filterButton, selected ? styles.filterButtonSelected : styles.filterButtonUnselected]}
             >
-              <Text className={`font-bold text-base ${selected ? 'text-white' : 'text-blue-700'}`}>{type}</Text>
+              <Text style={[styles.filterButtonText, selected ? styles.filterButtonTextSelected : styles.filterButtonTextUnselected]}>{type}</Text>
             </TouchableOpacity>
           );
         })}
@@ -738,7 +727,7 @@ export default function Home({ token, onLogout }: HomeProps) {
         <TouchableOpacity
           onPress={handleSync}
           disabled={!isOnline || isSyncing}
-          style={{ backgroundColor: (!isOnline || isSyncing) ? '#e5e7eb' : '#2563eb', borderRadius: 999, padding: 10 }}
+          style={[styles.syncButton, { backgroundColor: (!isOnline || isSyncing) ? '#e5e7eb' : '#2563eb' }]}
         >
           <MaterialIcons name="sync" size={20} color={(!isOnline || isSyncing) ? '#94a3b8' : '#fff'} />
         </TouchableOpacity>
@@ -795,22 +784,20 @@ export default function Home({ token, onLogout }: HomeProps) {
         
       </View> */}
       {/* Download and Sync Row */}
-      <View className="flex-row items-center justify-center gap-3 mb-3">
+      <View style={styles.actionButtonsContainer}>
         <TouchableOpacity
           onPress={handleUniversalDownload}
-          className="flex-row items-center justify-center bg-blue-600 py-3 px-4 rounded-full shadow-md"
-          style={{ elevation: 2 }}
+          style={styles.downloadButton}
         >
           <FontAwesome5 name="download" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base ml-2">All Data</Text>
+          <Text style={styles.downloadButtonText}>All Data</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowAIChatbot(true)}
-          style={styles.bottomButton}
-          className="bg-purple-600"
+          style={styles.aiAssistantButton}
         >
           <FontAwesome5 name="robot" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base ml-2">AI Assistant</Text>
+          <Text style={styles.aiAssistantButtonText}>AI Assistant</Text>
         </TouchableOpacity>
       </View>
 
@@ -819,19 +806,19 @@ export default function Home({ token, onLogout }: HomeProps) {
       {/* Customer list */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {customers.length === 0 && (
-          <Text className="text-center text-gray-400 mt-5">No customers found.</Text>
+          <Text style={styles.noCustomersText}>No customers found.</Text>
         )}
         {customers.map((c) => (
           <TouchableOpacity
             key={c._id}
             onPress={() => fetchCustomerDetails(c._id)}
-            className="flex-row justify-between items-center bg-white px-4 py-3 mb-1 rounded-lg"
+            style={styles.customerCard}
           >
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-gray-800 mb-1">{c.name}</Text>
-              <View className="flex-row items-center">
-                <Text className="text-xs text-gray-400 mr-1">📅</Text>
-                <Text className="text-xs text-gray-600 font-medium">
+            <View style={styles.customerInfo}>
+              <Text style={styles.customerName}>{c.name}</Text>
+              <View style={styles.customerDateRow}>
+                <Text style={styles.dateIcon}>📅</Text>
+                <Text style={styles.customerDateText}>
                   {(() => {
                     const latestDate = getLatestPurchaseDate(c);
                     if (latestDate) {
@@ -846,7 +833,7 @@ export default function Home({ token, onLogout }: HomeProps) {
                 </Text>
               </View>
             </View>
-            <Text className="text-blue-700 font-bold text-lg ml-3">₹{c.credit}</Text>
+            <Text style={styles.customerCredit}>₹{c.credit}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -856,27 +843,24 @@ export default function Home({ token, onLogout }: HomeProps) {
       <View style={[styles.bottomContainer, { paddingBottom: insets.bottom }]}>
         <TouchableOpacity
           onPress={() => setShowSalesPopup(true)}
-          style={styles.bottomButton}
-          className="bg-green-600"
+          style={[styles.bottomButton, styles.saleButton]}
         >
           <FontAwesome5 name="plus" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base ml-2">Sale</Text>
+          <Text style={styles.bottomButtonText}>Sale</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => handleNavigation('sales')}
-          style={styles.bottomButton}
-          className="bg-blue-600"
+          style={[styles.bottomButton, styles.viewSalesButton]}
         >
           <FontAwesome5 name="list" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base ml-2">View Sales</Text>
+          <Text style={styles.bottomButtonText}>View Sales</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowExpensePopup(true)}
-          style={styles.bottomButton}
-          className="bg-red-600"
+          style={[styles.bottomButton, styles.expenseButton]}
         >
           <FontAwesome5 name="money-bill-wave" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base ml-2">+ Expense</Text>
+          <Text style={styles.bottomButtonText}>+ Expense</Text>
         </TouchableOpacity>
         
       </View>
@@ -960,6 +944,53 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
+  // Top Navbar Styles
+  topNavbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  menuButton: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    padding: 8,
+    marginRight: 8,
+    elevation: 2,
+  },
+  appTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1d4ed8',
+    flex: 1,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  appTitleAccent: {
+    color: '#3b82f6',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoutButton: {
+    backgroundColor: '#fee2e2',
+    borderRadius: 20,
+    padding: 8,
+    marginLeft: 8,
+    elevation: 2,
+  },
   bottomContainer: {
     position: 'absolute',
     bottom: 0,
@@ -1019,5 +1050,171 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 15,
+  },
+  // Search and Filter Styles
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: '#000000',
+    backgroundColor: '#ffffff',
+    marginBottom: 16,
+    fontSize: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  filterButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  filterButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  filterButtonSelected: {
+    backgroundColor: '#2563eb',
+    elevation: 2,
+  },
+  filterButtonUnselected: {
+    backgroundColor: '#f3f4f6',
+  },
+  filterButtonText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  filterButtonTextSelected: {
+    color: '#ffffff',
+  },
+  filterButtonTextUnselected: {
+    color: '#1d4ed8',
+  },
+  syncButton: {
+    borderRadius: 999,
+    padding: 10,
+  },
+  // Action Buttons Styles
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  downloadButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  aiAssistantButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#9333ea',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  aiAssistantButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  // Customer List Styles
+  noCustomersText: {
+    textAlign: 'center',
+    color: '#9ca3af',
+    marginTop: 20,
+  },
+  customerCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 4,
+    borderRadius: 8,
+  },
+  customerInfo: {
+    flex: 1,
+  },
+  customerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  customerDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateIcon: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginRight: 4,
+  },
+  customerDateText: {
+    fontSize: 12,
+    color: '#4b5563',
+    fontWeight: '500',
+  },
+  customerCredit: {
+    color: '#1d4ed8',
+    fontWeight: 'bold',
+    fontSize: 18,
+    marginLeft: 12,
+  },
+  // Bottom Button Styles
+  saleButton: {
+    backgroundColor: '#16a34a',
+  },
+  viewSalesButton: {
+    backgroundColor: '#2563eb',
+  },
+  expenseButton: {
+    backgroundColor: '#dc2626',
+  },
+  bottomButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
   },
 });

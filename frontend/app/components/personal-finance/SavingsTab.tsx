@@ -47,9 +47,7 @@ export default function SavingsTab({ token }: SavingsTabProps) {
   const fetchSavingsTypes = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${BACKEND_URL}/api/savings-types`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/savings-types`);
       setSavingsTypes(response.data);
     } catch (error) {
       console.error('Error fetching savings types:', error);

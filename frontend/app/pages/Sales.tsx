@@ -93,9 +93,7 @@ export default function Sales({ token, onBack }: SalesProps) {
 
   const fetchCustomers = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/customers`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/customers`);
       setCustomers(response.data);
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -117,9 +115,7 @@ export default function Sales({ token, onBack }: SalesProps) {
       if (filterCustomerId) params.append('customerId', filterCustomerId);
       if (filterCustomerName) params.append('customerName', filterCustomerName);
 
-      const response = await axios.get<SalesResponse>(`${BACKEND_URL}/api/sales?${params}`, {
-        headers: { Authorization: token }
-      });
+      const response = await axios.get<SalesResponse>(`${BACKEND_URL}/api/sales?${params}`);
 
       setSales(response.data.sales);
       setTotalPages(response.data.pagination.totalPages);
@@ -139,9 +135,7 @@ export default function Sales({ token, onBack }: SalesProps) {
       if (filterFromDate) params.append('fromDate', filterFromDate);
       if (filterToDate) params.append('toDate', filterToDate);
 
-      const response = await axios.get<SalesSummary>(`${BACKEND_URL}/api/sales/summary?${params}`, {
-        headers: { Authorization: token }
-      });
+      const response = await axios.get<SalesSummary>(`${BACKEND_URL}/api/sales/summary?${params}`);
 
       setSummary(response.data);
     } catch (error) {

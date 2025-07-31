@@ -44,9 +44,7 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
   // Fetch categories from database
   const fetchCategories = async () => {
     try {
-      const response = await axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`, {
-        headers: { Authorization: token }
-      });
+      const response = await axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`);
       setCategories(response.data);
       
       // Set default category and subcategory if available
@@ -142,8 +140,6 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
         const response = await axios.post(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`, {
           name: newCategory.trim(),
           subcategories: []
-        }, {
-          headers: { Authorization: token }
         });
         
         setCategories([...categories, response.data.category]);
@@ -163,8 +159,6 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
 
         const response = await axios.post(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories/${selectedCategory._id}/subcategories`, {
           subcategory: newSubcategory.trim()
-        }, {
-          headers: { Authorization: token }
         });
         
         setCategories(categories.map(cat =>
@@ -193,8 +187,6 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
         const response = await axios.put(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories/${categoryToEdit._id}`, {
           name: editCategoryName.trim(),
           subcategories: categoryToEdit.subcategories
-        }, {
-          headers: { Authorization: token }
         });
         
         setCategories(categories.map((cat, i) => i === idx ? response.data.category : cat));
@@ -213,9 +205,7 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
       { text: 'Delete', style: 'destructive', onPress: async () => {
         try {
           const categoryToDelete = categories[idx];
-          await axios.delete(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories/${categoryToDelete._id}`, {
-            headers: { Authorization: token }
-          });
+          await axios.delete(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories/${categoryToDelete._id}`);
           
           setCategories(categories.filter((_, i) => i !== idx));
           if (categories[idx].name === category) setCategory(categories[0]?.name || '');
@@ -275,8 +265,7 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
           subcategory,
           description,
           photo: photoUrl,
-        },
-        { headers: { Authorization: token } }
+        }
       );
       onClose();
     } catch (err: any) {

@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import apiClient from '../../lib/axios-config';
 import AddCustomerPopup from '../components/AddCustomerPopup';
 import DeleteAuthPopup from '../components/DeleteAuthPopup';
 import * as XLSX from 'xlsx';
@@ -61,9 +62,7 @@ export default function Customers({ onBack, token }: CustomersProps) {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${BACKEND_URL}/api/customers`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/customers`);
       setCustomers(response.data);
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -131,7 +130,7 @@ export default function Customers({ onBack, token }: CustomersProps) {
     if (!customerToDelete) return;
 
     try {
-      await axios.delete(`${BACKEND_URL}/api/customers/${customerToDelete._id}`, {
+      await apiClient.delete(`/api/customers/${customerToDelete._id}`, {
         headers: { Authorization: token },
         data: { mobile, password }
       });
@@ -153,47 +152,46 @@ export default function Customers({ onBack, token }: CustomersProps) {
 
   if (editingCustomer) {
     return (
-      <SafeAreaView className="flex-1 bg-blue-50">
-        <View className="flex-1 p-4">
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
           {/* Header */}
-          <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
+          <View style={styles.header}>
             <Pressable
               onPress={() => setEditingCustomer(null)}
-              className="bg-gray-100 rounded-full p-2"
-              style={{ elevation: 2 }}
+              style={styles.backButton}
             >
               <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
             </Pressable>
-            <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center">Edit Customer</Text>
-            <View style={{ width: 40 }} />
+            <Text style={styles.headerTitle}>Edit Customer</Text>
+            <View style={styles.headerSpacer} />
           </View>
 
           {/* Edit Form */}
-          <View className="bg-white rounded-xl p-6 shadow-sm">
+          <View style={styles.editForm}>
             <TextInput
               placeholder="Name"
               value={editForm.name}
               onChangeText={(text) => setEditForm(prev => ({ ...prev, name: text }))}
-              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+              style={styles.input}
             />
             <TextInput
               placeholder="Contact"
               value={editForm.contact}
               onChangeText={(text) => setEditForm(prev => ({ ...prev, contact: text }))}
-              className="w-full mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+              style={styles.input}
             />
             <TextInput
               placeholder="Credit"
               value={editForm.credit}
               onChangeText={(text) => setEditForm(prev => ({ ...prev, credit: text }))}
               keyboardType="numeric"
-              className="w-full mb-6 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-base"
+              style={styles.input}
             />
             <TouchableOpacity
               onPress={handleUpdate}
-              className="w-full bg-blue-600 py-3 rounded-xl shadow-sm"
+              style={styles.updateButton}
             >
-              <Text className="text-white text-center font-semibold text-lg">Update Customer</Text>
+              <Text style={styles.updateButtonText}>Update Customer</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -205,19 +203,17 @@ export default function Customers({ onBack, token }: CustomersProps) {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         {/* Header */}
-        <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
+        <View style={styles.header}>
           <Pressable
             onPress={onBack}
-            className="bg-gray-100 rounded-full p-2"
-            style={{ elevation: 2 }}
+            style={styles.backButton}
           >
             <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
           </Pressable>
-          <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center">Customers</Text>
+          <Text style={styles.headerTitle}>Customers</Text>
           <TouchableOpacity
             onPress={handleDownloadCustomers}
-            className="bg-gray-100 rounded-full p-2"
-            style={{ elevation: 2 }}
+            style={styles.downloadButton}
           >
             <MaterialIcons name="download" size={22} color="#2563EB" />
           </TouchableOpacity>
@@ -225,43 +221,41 @@ export default function Customers({ onBack, token }: CustomersProps) {
 
         {/* Customer List */}
         {loading ? (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500 text-lg">Loading customers...</Text>
+          <View style={styles.centerContainer}>
+            <Text style={styles.loadingText}>Loading customers...</Text>
           </View>
         ) : customers.length === 0 ? (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500 text-lg">No customers found</Text>
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyText}>No customers found</Text>
           </View>
         ) : (
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
             {customers.map((customer) => (
               <View
                 key={customer._id}
-                className="bg-white rounded-xl p-4 mb-3 border border-gray-100 shadow-sm"
+                style={styles.customerCard}
               >
-                <View className="flex-row justify-between items-start">
-                  <View className="flex-1">
-                    <Text className="text-lg font-semibold text-gray-800 mb-2">
+                <View style={styles.customerCardContent}>
+                  <View style={styles.customerInfo}>
+                    <Text style={styles.customerName}>
                       {customer.name}
                     </Text>
-                    <View className="space-y-1">
-                      <Text className="text-sm text-gray-600">Contact: {customer.contact}</Text>
-                      <Text className="text-sm text-gray-600">Credit: ₹{customer.credit}</Text>
-                      <Text className="text-sm text-gray-600">Joined: {new Date(customer.joinDate).toLocaleDateString()}</Text>
+                    <View style={styles.customerDetails}>
+                      <Text style={styles.customerDetailText}>Contact: {customer.contact}</Text>
+                      <Text style={styles.customerDetailText}>Credit: ₹{customer.credit}</Text>
+                      <Text style={styles.customerDetailText}>Joined: {new Date(customer.joinDate).toLocaleDateString()}</Text>
                     </View>
                   </View>
-                  <View className="flex-row gap-2 ml-2">
+                  <View style={styles.actionButtons}>
                     <Pressable
                       onPress={() => handleEdit(customer)}
-                      className="bg-blue-100 rounded-full p-2"
-                      style={{ elevation: 1 }}
+                      style={styles.editButton}
                     >
                       <MaterialIcons name="edit" size={18} color="#2563EB" />
                     </Pressable>
                     <Pressable
                       onPress={() => handleDelete(customer)}
-                      className="bg-red-100 rounded-full p-2"
-                      style={{ elevation: 1 }}
+                      style={styles.deleteButton}
                     >
                       <MaterialIcons name="delete" size={18} color="#dc2626" />
                     </Pressable>
@@ -336,5 +330,149 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
+  },
+  // Header Styles
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 24,
+    marginTop: 4,
+  },
+  backButton: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 2,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1d4ed8',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  downloadButton: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 2,
+  },
+  // Edit Form Styles
+  editForm: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  input: {
+    width: '100%',
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#1f2937',
+    fontSize: 16,
+  },
+  updateButton: {
+    width: '100%',
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  updateButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 18,
+  },
+  // Customer List Styles
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#6b7280',
+    fontSize: 18,
+  },
+  emptyText: {
+    color: '#6b7280',
+    fontSize: 18,
+  },
+  customerCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  customerCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  customerInfo: {
+    flex: 1,
+  },
+  customerName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  customerDetails: {
+    gap: 4,
+  },
+  customerDetailText: {
+    fontSize: 14,
+    color: '#4b5563',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginLeft: 8,
+  },
+  editButton: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 1,
+  },
+  deleteButton: {
+    backgroundColor: '#fee2e2',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 1,
   },
 });

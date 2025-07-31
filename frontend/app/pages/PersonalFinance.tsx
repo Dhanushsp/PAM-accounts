@@ -61,10 +61,10 @@ export default function PersonalFinance({ onBack, token }: PersonalFinanceProps)
     try {
       // Fetch all data for personal finance
       const [savingsResponse, incomeResponse, payablesResponse, moneyLentResponse] = await Promise.all([
-        axios.get(`${BACKEND_URL}/api/savings-types`, { headers: { Authorization: token } }),
-        axios.get(`${BACKEND_URL}/api/income-types`, { headers: { Authorization: token } }),
-        axios.get(`${BACKEND_URL}/api/payable-types`, { headers: { Authorization: token } }),
-        axios.get(`${BACKEND_URL}/api/money-lent-types`, { headers: { Authorization: token } })
+        apiClient.get(`/api/savings-types`),
+        apiClient.get(`/api/income-types`),
+        apiClient.get(`/api/payable-types`),
+        apiClient.get(`/api/money-lent-types`)
       ]);
 
       const wb = XLSX.utils.book_new();

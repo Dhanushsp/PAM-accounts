@@ -47,9 +47,7 @@ export default function PayablesTab({ token }: PayablesTabProps) {
   const fetchPayableTypes = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${BACKEND_URL}/api/payable-types`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/payable-types`);
       setPayableTypes(response.data);
     } catch (error) {
       console.error('Error fetching payable types:', error);

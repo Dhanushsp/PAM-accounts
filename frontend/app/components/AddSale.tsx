@@ -86,11 +86,11 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
 
   useEffect(() => {
     if (token) {
-      axios.get(`${BACKEND_URL}/api/customers`, { headers: { Authorization: token } })
+      apiClient.get(`/api/customers`)
         .then(res => setCustomers(res.data))
         .catch(err => console.error('Error fetching customers:', err));
 
-      axios.get(`${BACKEND_URL}/api/products`, { headers: { Authorization: token } })
+      apiClient.get(`/api/products`)
         .then(res => setProducts(res.data))
         .catch(err => console.error('Error fetching products:', err));
     }
@@ -157,7 +157,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
         updatedCredit,
         date: new Date(saleDate)
       };
-      await axios.post(`${BACKEND_URL}/api/sales`, data, { headers: { Authorization: token } });
+      await apiClient.post(`/api/sales`, data);
       Alert.alert('Success', 'Sale added successfully!');
       onClose();
       onSetSortToRecent?.();

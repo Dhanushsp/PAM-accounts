@@ -18,7 +18,7 @@ import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { Audio } from 'expo-av';
 import Voice from '@react-native-voice/voice';
-import axios from 'axios';
+import apiClient from '../../lib/axios-config';
 
 interface Message {
   id: string;
@@ -115,14 +115,17 @@ export default function GeminiVoiceChatbot({ token, isVisible, onClose }: Gemini
   const fetchAppData = async () => {
     try {
       const [expensesRes, salesRes, categoriesRes] = await Promise.all([
-        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/expenses`, {
-          headers: { Authorization: token }
+        apiClient.get('/api/expenses', {
+          headers: { Authorization: token },
+          timeout: 15000
         }),
-        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/sales`, {
-          headers: { Authorization: token }
+        apiClient.get('/api/sales', {
+          headers: { Authorization: token },
+          timeout: 15000
         }),
-        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`, {
-          headers: { Authorization: token }
+        apiClient.get('/api/categories', {
+          headers: { Authorization: token },
+          timeout: 15000
         })
       ]);
 
@@ -166,9 +169,6 @@ export default function GeminiVoiceChatbot({ token, isVisible, onClose }: Gemini
           appData: appData,
           context: messages.slice(-5), // Last 5 messages for context
           language: language
-        },
-        {
-          headers: { Authorization: token }
         }
       );
 

@@ -77,9 +77,7 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
 
   const fetchSavingsTypes = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/savings-types`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/savings-types`);
       setSavingsTypes(response.data);
     } catch (error) {
       console.error('Error fetching savings types:', error);
@@ -94,10 +92,8 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
     }
 
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/savings-types`, {
+      const response = await apiClient.post(`/api/savings-types`, {
         name: newType.trim()
-      }, {
-        headers: { Authorization: token }
       });
 
       const createdType = response.data;
@@ -123,12 +119,10 @@ export default function AddSavingsPopup({ token, onClose, onSavingsAdded }: AddS
 
     setLoading(true);
     try {
-      await axios.post(`${BACKEND_URL}/api/savings-entries`, {
+      await apiClient.post(`/api/savings-entries`, {
         typeId: selectedType._id,
         amount: parseFloat(amount),
         date: new Date(date)
-      }, {
-        headers: { Authorization: token }
       });
 
       Alert.alert('Success', 'Savings entry added successfully!');

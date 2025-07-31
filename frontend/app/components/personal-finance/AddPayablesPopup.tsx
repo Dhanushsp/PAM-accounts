@@ -77,9 +77,7 @@ export default function AddPayablesPopup({ token, onClose, onPayablesAdded }: Ad
 
   const fetchPayableTypes = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/payable-types`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/payable-types`);
       setPayableTypes(response.data);
     } catch (error) {
       console.error('Error fetching payable types:', error);
@@ -94,10 +92,8 @@ export default function AddPayablesPopup({ token, onClose, onPayablesAdded }: Ad
     }
 
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/payable-types`, {
+      const response = await apiClient.post(`/api/payable-types`, {
         name: newType.trim()
-      }, {
-        headers: { Authorization: token }
       });
 
       const createdType = response.data;
@@ -123,12 +119,10 @@ export default function AddPayablesPopup({ token, onClose, onPayablesAdded }: Ad
 
     setLoading(true);
     try {
-      await axios.post(`${BACKEND_URL}/api/payable-entries`, {
+      await apiClient.post(`/api/payable-entries`, {
         typeId: selectedType._id,
         amount: parseFloat(amount),
         date: new Date(date)
-      }, {
-        headers: { Authorization: token }
       });
 
       Alert.alert('Success', 'Payable entry added successfully!');

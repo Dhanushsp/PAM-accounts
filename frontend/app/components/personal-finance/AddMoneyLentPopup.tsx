@@ -77,9 +77,7 @@ export default function AddMoneyLentPopup({ token, onClose, onMoneyLentAdded }: 
 
   const fetchMoneyLentTypes = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/money-lent-types`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/money-lent-types`);
       setMoneyLentTypes(response.data);
     } catch (error) {
       console.error('Error fetching money lent types:', error);
@@ -94,10 +92,8 @@ export default function AddMoneyLentPopup({ token, onClose, onMoneyLentAdded }: 
     }
 
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/money-lent-types`, {
+      const response = await apiClient.post(`/api/money-lent-types`, {
         name: newType.trim()
-      }, {
-        headers: { Authorization: token }
       });
 
       const createdType = response.data;
@@ -123,12 +119,10 @@ export default function AddMoneyLentPopup({ token, onClose, onMoneyLentAdded }: 
 
     setLoading(true);
     try {
-      await axios.post(`${BACKEND_URL}/api/money-lent-entries`, {
+      await apiClient.post(`/api/money-lent-entries`, {
         typeId: selectedType._id,
         amount: parseFloat(amount),
         date: new Date(date)
-      }, {
-        headers: { Authorization: token }
       });
 
       Alert.alert('Success', 'Money lent entry added successfully!');

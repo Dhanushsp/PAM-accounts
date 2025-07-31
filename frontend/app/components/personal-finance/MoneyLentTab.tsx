@@ -47,9 +47,7 @@ export default function MoneyLentTab({ token }: MoneyLentTabProps) {
   const fetchMoneyLentTypes = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${BACKEND_URL}/api/money-lent-types`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/money-lent-types`);
       setMoneyLentTypes(response.data);
     } catch (error) {
       console.error('Error fetching money lent types:', error);

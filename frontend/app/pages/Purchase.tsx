@@ -89,9 +89,7 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
   const fetchVendors = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${BACKEND_URL}/api/vendors`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/vendors`);
       setVendors(response.data);
     } catch (error) {
       console.error('Error fetching vendors:', error);
@@ -103,9 +101,7 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
 
   const fetchPurchases = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/purchases`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/purchases`);
       setPurchases(response.data);
     } catch (error) {
       console.error('Error fetching purchases:', error);
@@ -123,7 +119,7 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
 
     try {
       if (vendorToDelete) {
-        await axios.delete(`${BACKEND_URL}/api/vendors/${vendorToDelete._id}`, {
+        await apiClient.delete(`/api/vendors/${vendorToDelete._id}`, {
           headers: { Authorization: token },
           data: { mobile, password }
         });
@@ -132,7 +128,7 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
         setVendorToDelete(null);
         fetchVendors();
       } else if (purchaseToDelete) {
-        await axios.delete(`${BACKEND_URL}/api/purchases/${purchaseToDelete._id}`, {
+        await apiClient.delete(`/api/purchases/${purchaseToDelete._id}`, {
           headers: { Authorization: token },
           data: { mobile, password }
         });

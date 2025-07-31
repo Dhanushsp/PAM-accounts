@@ -87,9 +87,7 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
 
   const fetchIncomeTypes = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/income-types`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/income-types`);
       setIncomeTypes(response.data);
     } catch (error) {
       console.error('Error fetching income types:', error);
@@ -99,9 +97,7 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
 
   const fetchSavingsTypes = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/savings-types`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/savings-types`);
       setSavingsTypes(response.data);
     } catch (error) {
       console.error('Error fetching savings types:', error);
@@ -115,10 +111,8 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
     }
 
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/income-types`, {
+      const response = await apiClient.post(`/api/income-types`, {
         name: newType.trim()
-      }, {
-        headers: { Authorization: token }
       });
 
       const createdType = response.data;
@@ -160,9 +154,7 @@ export default function AddIncomePopup({ token, onClose, onIncomeAdded }: AddInc
         data.typeId = selectedType._id;
       }
 
-      await axios.post(`${BACKEND_URL}/api/income-entries`, data, {
-        headers: { Authorization: token }
-      });
+      await apiClient.post(`/api/income-entries`, data);
 
       Alert.alert('Success', 'Income entry added successfully!');
       onIncomeAdded?.();

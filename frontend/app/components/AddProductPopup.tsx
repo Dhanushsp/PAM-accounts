@@ -67,7 +67,7 @@ export default function AddProductPopup({ token, onClose, onProductAdded, editPr
 
   const handleSubmit = async () => {
     try {
-      const res = await axios.post(`${BACKEND_URL}/api/addproducts`, form, {
+      const res = await apiClient.post(`/api/addproducts`, form, {
         headers: { 'Content-Type': 'application/json', Authorization: token }
       });
       Alert.alert('Success', res.data.message || "Product added!");

@@ -69,9 +69,7 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
   const fetchVendors = async () => {
     try {
       console.log('Fetching vendors...');
-      const response = await axios.get(`${BACKEND_URL}/api/vendors`, {
-        headers: { Authorization: token }
-      });
+      const response = await apiClient.get(`/api/vendors`);
       console.log('Vendors fetched:', response.data);
       setVendors(response.data);
     } catch (error) {
@@ -132,15 +130,11 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
         date: new Date()
       };
 
-      await axios.post(`${BACKEND_URL}/api/purchases`, purchaseData, {
-        headers: { Authorization: token }
-      });
+      await apiClient.post(`/api/purchases`, purchaseData);
 
       // Update vendor credit
-      await axios.put(`${BACKEND_URL}/api/vendors/${selectedVendor._id}`, {
+      await apiClient.put(`/api/vendors/${selectedVendor._id}`, {
         credit: getUpdatedCredit()
-      }, {
-        headers: { Authorization: token }
       });
 
       Alert.alert('Success', 'Purchase added successfully!');

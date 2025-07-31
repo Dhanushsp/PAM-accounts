@@ -52,7 +52,7 @@ export default function Login({ setToken }: LoginProps) {
     setError('');
 
     try {
-      const res = await axios.post(`${BACKEND_URL}/api/login`, { mobile, password });
+      const res = await apiClient.post(`/api/login`, { mobile, password });
       await AsyncStorage.setItem('token', res.data.token);
       setToken(res.data.token);
     } catch (err: any) {
