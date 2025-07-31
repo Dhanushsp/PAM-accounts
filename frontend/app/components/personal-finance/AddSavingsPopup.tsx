@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import apiClient from '../../lib/axios-config';
+import apiClient from '../../../lib/axios-config';
 
 interface SavingsType {
   _id: string;

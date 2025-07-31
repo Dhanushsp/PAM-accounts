@@ -4,7 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddIncomePopup from './AddIncomePopup';
 import DatePicker from '../DatePicker';
-import apiClient from '../../lib/axios-config';
+import apiClient from '../../../lib/axios-config';
 
 interface IncomeType {
   _id: string;

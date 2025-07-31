@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddMoneyLentPopup from './AddMoneyLentPopup';
-import DatePicker from '../DatePicker';import apiClient from '../../lib/axios-config';
+import DatePicker from '../DatePicker';import apiClient from '../../../lib/axios-config';
 
 
 interface MoneyLentType {
