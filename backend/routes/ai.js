@@ -1,50 +1,109 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const router = express.Router();
+
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'your-gemini-api-key');
+const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
 // AI Chat endpoint
 router.post('/chat', auth, async (req, res) => {
   try {
-    const { message, appData, context } = req.body;
+    const { message, appData, context, language = 'tamil' } = req.body;
     
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Analyze the message and app data to generate a response
-    const response = await generateAIResponse(message, appData, context);
+    // Generate response using Gemini AI
+    const response = await generateGeminiResponse(message, appData, context, language);
     
-    res.json({ response });
+    res.json({ 
+      response: response.text,
+      tamilResponse: response.tamilText,
+      suggestions: response.suggestions
+    });
   } catch (error) {
     console.error('AI Chat error:', error);
     res.status(500).json({ error: 'Failed to process AI request' });
   }
 });
 
-// AI response generation function
-async function generateAIResponse(message, appData, context) {
-  const lowerMessage = message.toLowerCase();
-  
-  // Extract insights from app data
-  const insights = analyzeAppData(appData);
-  
-  // Handle different types of queries
-  if (lowerMessage.includes('expense') || lowerMessage.includes('spending')) {
-    return generateExpenseInsights(insights, lowerMessage);
-  } else if (lowerMessage.includes('sale') || lowerMessage.includes('revenue') || lowerMessage.includes('income')) {
-    return generateSalesInsights(insights, lowerMessage);
-  } else if (lowerMessage.includes('category') || lowerMessage.includes('categories')) {
-    return generateCategoryInsights(insights, lowerMessage);
-  } else if (lowerMessage.includes('trend') || lowerMessage.includes('compare') || lowerMessage.includes('month')) {
-    return generateTrendInsights(insights, lowerMessage);
-  } else if (lowerMessage.includes('insight') || lowerMessage.includes('analysis') || lowerMessage.includes('summary')) {
-    return generateGeneralInsights(insights, lowerMessage);
-  } else if (lowerMessage.includes('reduce') || lowerMessage.includes('save') || lowerMessage.includes('optimize')) {
-    return generateOptimizationSuggestions(insights, lowerMessage);
-  } else {
-    return generateGeneralResponse(insights, message);
+// Gemini AI response generation function
+async function generateGeminiResponse(message, appData, context, language) {
+  try {
+    // Analyze app data to extract insights
+    const insights = analyzeAppData(appData);
+    
+    // Create comprehensive prompt for Gemini
+    const prompt = createGeminiPrompt(message, insights, appData, language);
+    
+    // Generate response using Gemini
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    // Generate Tamil response
+    const tamilPrompt = `Translate the following business analysis to Tamil (தமிழ்) while maintaining the professional tone and financial terminology:
+
+${text}
+
+Please provide the Tamil translation:`;
+    
+    const tamilResult = await model.generateContent(tamilPrompt);
+    const tamilResponse = await tamilResult.response;
+    const tamilText = tamilResponse.text();
+    
+    // Generate business suggestions
+    const suggestionsPrompt = `Based on the following business data and analysis, provide 3-5 actionable business improvement suggestions in Tamil:
+
+Business Data: ${JSON.stringify(insights, null, 2)}
+Analysis: ${text}
+
+Provide suggestions in Tamil:`;
+    
+    const suggestionsResult = await model.generateContent(suggestionsPrompt);
+    const suggestionsResponse = await suggestionsResult.response;
+    const suggestions = suggestionsResponse.text();
+    
+    return {
+      text: text,
+      tamilText: tamilText,
+      suggestions: suggestions
+    };
+  } catch (error) {
+    console.error('Gemini API error:', error);
+    return {
+      text: "I'm sorry, I'm having trouble processing your request right now. Please try again.",
+      tamilText: "மன்னிக்கவும், உங்கள் கோரிக்கையை செயலாக்குவதில் சிக்கல் உள்ளது. தயவுசெய்து மீண்டும் முயற்சிக்கவும்.",
+      suggestions: "தயவுசெய்து மீண்டும் முயற்சிக்கவும்."
+    };
   }
+}
+
+// Create comprehensive prompt for Gemini AI
+function createGeminiPrompt(message, insights, appData, language) {
+  const basePrompt = `You are an intelligent business analyst AI assistant. Analyze the following business data and provide comprehensive insights in ${language === 'tamil' ? 'Tamil (தமிழ்)' : 'English'}.
+
+Business Data Summary:
+${JSON.stringify(insights, null, 2)}
+
+User Query: "${message}"
+
+Please provide:
+1. A detailed analysis of the business data relevant to the user's query
+2. Specific insights and trends
+3. Actionable recommendations for business improvement
+4. Financial health indicators
+5. Risk assessment and opportunities
+
+Respond in a professional, helpful tone with clear formatting. Include emojis and bullet points for better readability.
+
+Response:`;
+
+  return basePrompt;
 }
 
 // Analyze app data to extract insights

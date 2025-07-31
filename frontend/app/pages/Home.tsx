@@ -17,7 +17,7 @@ import * as Sharing from 'expo-sharing';
 import AddExpensePopup from '../components/AddExpensePopup';
 import CustomersPage from './Customers';
 import Expenses from './Expenses';
-import AIChatbot from '../components/AIChatbot';
+import GeminiVoiceChatbot from '../components/GeminiVoiceChatbot';
 import { useSync } from '../lib/useSync';
 import { getPendingActions, saveData, getData, addPendingAction, KEYS } from '../lib/storage';
 import { getToken } from '../lib/auth';
@@ -804,6 +804,14 @@ export default function Home({ token, onLogout }: HomeProps) {
           <FontAwesome5 name="download" size={16} color="#fff" />
           <Text className="text-white text-center font-bold text-base ml-2">All Data</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setShowAIChatbot(true)}
+          style={styles.bottomButton}
+          className="bg-purple-600"
+        >
+          <FontAwesome5 name="robot" size={16} color="#fff" />
+          <Text className="text-white text-center font-bold text-base ml-2">AI Assistant</Text>
+        </TouchableOpacity>
       </View>
 
       
@@ -870,14 +878,7 @@ export default function Home({ token, onLogout }: HomeProps) {
           <FontAwesome5 name="money-bill-wave" size={16} color="#fff" />
           <Text className="text-white text-center font-bold text-base ml-2">+ Expense</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setShowAIChatbot(true)}
-          style={styles.bottomButton}
-          className="bg-purple-600"
-        >
-          <FontAwesome5 name="robot" size={16} color="#fff" />
-          <Text className="text-white text-center font-bold text-base ml-2">AI Assistant</Text>
-        </TouchableOpacity>
+        
       </View>
 
       {/* Popups and SideNav remain unchanged */}
@@ -917,7 +918,7 @@ export default function Home({ token, onLogout }: HomeProps) {
       )}
 
       {showAIChatbot && (
-        <AIChatbot
+        <GeminiVoiceChatbot
           token={token}
           isVisible={showAIChatbot}
           onClose={() => setShowAIChatbot(false)}
