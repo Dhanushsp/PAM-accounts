@@ -38,8 +38,6 @@ export default function Customers({ onBack, token }: CustomersProps) {
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const insets = useSafeAreaInsets();
 
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
-
   // Handle back button
   useEffect(() => {
     const backAction = () => {
@@ -87,13 +85,7 @@ export default function Customers({ onBack, token }: CustomersProps) {
     try {
       await axios.put(
         `${BACKEND_URL}/api/customers/${editingCustomer._id}`,
-        editForm,
-        {
-          headers: { 
-            'Content-Type': 'application/json',
-            Authorization: token 
-          }
-        }
+        editForm
       );
       Alert.alert('Success', 'Customer updated successfully');
       setEditingCustomer(null);

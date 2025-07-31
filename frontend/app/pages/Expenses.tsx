@@ -5,7 +5,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import ExpenseStats from '../components/ExpenseStats';
 import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import * as Sharing from 'expo-sharing';import apiClient from '../../lib/axios-config';
+
 
 interface Expense {
   _id: string;
@@ -31,8 +32,6 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
   const [filterType, setFilterType] = useState<'daily' | 'monthly' | 'yearly'>('daily');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const insets = useSafeAreaInsets();
-
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
   const fetchExpenses = async () => {
     try {

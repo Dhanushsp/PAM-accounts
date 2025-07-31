@@ -567,9 +567,9 @@ export default function Home({ token, onLogout }: HomeProps) {
     // Sync products
     for (const action of pending.filter(a => a.entity === 'product')) {
       if (action.op === 'add') {
-        await apiClient.post(`/api/addproducts`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+        await apiClient.post(`/api/addproducts`, action.data);
       } else if (action.op === 'edit') {
-        await apiClient.put(`/api/products/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+        await apiClient.put(`/api/products/${action.id}`, action.data);
       } else if (action.op === 'delete') {
                   await apiClient.delete(`/api/products/${action.id}`);
       }
@@ -577,9 +577,9 @@ export default function Home({ token, onLogout }: HomeProps) {
     // Sync customers
     for (const action of pending.filter(a => a.entity === 'customer')) {
       if (action.op === 'add') {
-        await apiClient.post(`/api/customers`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+        await apiClient.post(`/api/customers`, action.data);
       } else if (action.op === 'edit') {
-        await apiClient.put(`/api/customers/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+        await apiClient.put(`/api/customers/${action.id}`, action.data);
       } else if (action.op === 'delete') {
                   await apiClient.delete(`/api/customers/${action.id}`);
       }
@@ -588,9 +588,9 @@ export default function Home({ token, onLogout }: HomeProps) {
     for (const action of pending.filter(a => a.entity === 'expense')) {
       try {
         if (action.op === 'add') {
-          await apiClient.post(`/api/expenses`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+          await apiClient.post(`/api/expenses`, action.data);
         } else if (action.op === 'edit') {
-          await apiClient.put(`/api/expenses/${action.id}`, action.data, { headers: { 'Content-Type': 'application/json', Authorization: token } });
+          await apiClient.put(`/api/expenses/${action.id}`, action.data);
         } else if (action.op === 'delete') {
           await apiClient.delete(`/api/expenses/${action.id}`);
         }

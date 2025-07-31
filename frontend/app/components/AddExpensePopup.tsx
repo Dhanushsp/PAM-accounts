@@ -3,7 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, Pressable, Modal, StyleSheet, 
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
-import DatePicker from './DatePicker';
+import DatePicker from './DatePicker';import apiClient from '../../lib/axios-config';
+
 
 interface AddExpensePopupProps {
   token: string;
@@ -44,7 +45,7 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
   // Fetch categories from database
   const fetchCategories = async () => {
     try {
-      const response = await axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`);
+      const response = await apiClient.get(`/api/categories`);
       setCategories(response.data);
       
       // Set default category and subcategory if available
@@ -137,7 +138,7 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
   const handleAddCategory = async () => {
     if (newCategory.trim()) {
       try {
-        const response = await axios.post(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`, {
+        const response = await apiClient.post(`/api/categories`, {
           name: newCategory.trim(),
           subcategories: []
         });
@@ -157,7 +158,7 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
         const selectedCategory = categories.find(cat => cat.name === category);
         if (!selectedCategory) return;
 
-        const response = await axios.post(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories/${selectedCategory._id}/subcategories`, {
+        const response = await apiClient.post(`/api/categories/${selectedCategory._id}/subcategories`, {
           subcategory: newSubcategory.trim()
         });
         
@@ -184,7 +185,7 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
     if (editCategoryName.trim()) {
       try {
         const categoryToEdit = categories[idx];
-        const response = await axios.put(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories/${categoryToEdit._id}`, {
+        const response = await apiClient.put(`/api/categories/${categoryToEdit._id}`, {
           name: editCategoryName.trim(),
           subcategories: categoryToEdit.subcategories
         });
@@ -205,7 +206,7 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
       { text: 'Delete', style: 'destructive', onPress: async () => {
         try {
           const categoryToDelete = categories[idx];
-          await axios.delete(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories/${categoryToDelete._id}`);
+          await apiClient.delete(`/api/categories/${categoryToDelete._id}`);
           
           setCategories(categories.filter((_, i) => i !== idx));
           if (categories[idx].name === category) setCategory(categories[0]?.name || '');

@@ -16,7 +16,8 @@ import {
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import * as Voice from 'expo-speech';
-import axios from 'axios';
+import axios from 'axios';import apiClient from '../../lib/axios-config';
+
 
 interface Message {
   id: string;
@@ -59,9 +60,9 @@ export default function AIChatbot({ token, isVisible, onClose }: AIChatbotProps)
   const fetchAppData = async () => {
     try {
       const [expensesRes, salesRes, categoriesRes] = await Promise.all([
-        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/expenses`),
-        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/sales`),
-        axios.get(`${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/categories`)
+        apiClient.get(`/api/expenses`),
+        apiClient.get(`/api/sales`),
+        apiClient.get(`/api/categories`)
       ]);
 
       setAppData({

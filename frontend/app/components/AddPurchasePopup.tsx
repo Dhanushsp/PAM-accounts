@@ -3,7 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import { KeyboardAvoidingView, Platform } from 'react-native';
+import { KeyboardAvoidingView, Platform } from 'react-native';import apiClient from '../../lib/axios-config';
+
 
 
 interface Vendor {
@@ -59,8 +60,6 @@ export default function AddPurchasePopup({ token, onClose }: AddPurchasePopupPro
   const containerMaxHeight = keyboardVisible 
     ? Math.min(screenHeight * 0.85, availableHeight) // Use more available space when at top
     : screenHeight * 0.95;
-
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
   useEffect(() => {
     fetchVendors();

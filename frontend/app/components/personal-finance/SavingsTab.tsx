@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddSavingsPopup from './AddSavingsPopup';
 import DatePicker from '../DatePicker';
+import apiClient from '../../lib/axios-config';
 
 interface SavingsType {
   _id: string;
@@ -31,8 +32,6 @@ export default function SavingsTab({ token }: SavingsTabProps) {
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
-
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
   useEffect(() => {
     fetchSavingsTypes();

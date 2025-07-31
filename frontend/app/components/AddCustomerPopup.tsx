@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, Keyboard, Dimensions, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import apiClient from '../../lib/axios-config';
 
 interface AddCustomerPopupProps {
   token: string;
@@ -51,8 +52,6 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded, edit
     ? Math.min(screenHeight * 0.8, availableHeight)
     : screenHeight * 0.95;
 
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
-
   const handleChange = (key: string, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }));
   };
@@ -61,15 +60,11 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded, edit
     try {
       if (editCustomer) {
         // Edit mode: PUT request
-        const res = await apiClient.put(`/api/customers/${editCustomer._id}`, form, {
-          headers: { 'Content-Type': 'application/json', Authorization: token }
-        });
+        const res = await apiClient.put(`/api/customers/${editCustomer._id}`, form);
         Alert.alert('Success', res.data.message || 'Customer updated!');
       } else {
         // Add mode: POST request
-      const res = await apiClient.post(`/api/customers`, form, {
-        headers: { 'Content-Type': 'application/json', Authorization: token }
-      });
+      const res = await apiClient.post(`/api/customers`, form);
       Alert.alert('Success', res.data.message || 'Customer added!');
       }
       onCustomerAdded();

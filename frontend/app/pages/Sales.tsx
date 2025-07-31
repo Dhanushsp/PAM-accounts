@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import DatePicker from '../components/DatePicker';
+import apiClient from '../../lib/axios-config';
 
 interface Sale {
   _id: string;
@@ -75,8 +76,6 @@ export default function Sales({ token, onBack }: SalesProps) {
   const [customers, setCustomers] = useState<Array<{ _id: string; name: string }>>([]);
   
   const insets = useSafeAreaInsets();
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
-
   useEffect(() => {
     fetchCustomers();
     fetchSales();

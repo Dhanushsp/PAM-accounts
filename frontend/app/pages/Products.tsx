@@ -43,8 +43,6 @@ export default function Products({ onBack, token }: ProductsProps) {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const insets = useSafeAreaInsets();
 
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
-
   // Handle back button
   useEffect(() => {
     const backAction = () => {
@@ -100,13 +98,7 @@ export default function Products({ onBack, token }: ProductsProps) {
     try {
       const response = await axios.put(
         `${BACKEND_URL}/api/products/${editingProduct._id}`,
-        editForm,
-        {
-          headers: { 
-            'Content-Type': 'application/json',
-            Authorization: token 
-          }
-        }
+        editForm
       );
       
       Alert.alert('Success', 'Product updated successfully');
@@ -167,13 +159,9 @@ export default function Products({ onBack, token }: ProductsProps) {
     const productActions = pending.filter(a => a.type && a.entity === 'product');
     for (const action of productActions) {
       if (action.op === 'add') {
-        await apiClient.post(`/api/addproducts`, action.data, {
-          headers: { 'Content-Type': 'application/json', Authorization: token }
-        });
+        await apiClient.post(`/api/addproducts`, action.data);
       } else if (action.op === 'edit') {
-        await apiClient.put(`/api/products/${action.id}`, action.data, {
-          headers: { 'Content-Type': 'application/json', Authorization: token }
-        });
+        await apiClient.put(`/api/products/${action.id}`, action.data);
       } else if (action.op === 'delete') {
         await apiClient.delete(`/api/products/${action.id}`);
       }

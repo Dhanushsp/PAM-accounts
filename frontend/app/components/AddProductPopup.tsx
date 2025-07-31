@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, 
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import KeyboardAwarePopup from './KeyboardAwarePopup';
+import apiClient from '../../lib/axios-config';
 
 interface AddProductPopupProps {
   token: string;
@@ -51,8 +52,6 @@ export default function AddProductPopup({ token, onClose, onProductAdded, editPr
     ? Math.min(screenHeight * 0.8, availableHeight)
     : screenHeight * 0.95;
 
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
-
   useEffect(() => {
     const { pricePerPack, kgsPerPack } = form;
     if (pricePerPack && kgsPerPack && !isNaN(+pricePerPack) && !isNaN(+kgsPerPack)) {
@@ -67,9 +66,7 @@ export default function AddProductPopup({ token, onClose, onProductAdded, editPr
 
   const handleSubmit = async () => {
     try {
-      const res = await apiClient.post(`/api/addproducts`, form, {
-        headers: { 'Content-Type': 'application/json', Authorization: token }
-      });
+      const res = await apiClient.post(`/api/addproducts`, form);
       Alert.alert('Success', res.data.message || "Product added!");
       onClose();
       onProductAdded();

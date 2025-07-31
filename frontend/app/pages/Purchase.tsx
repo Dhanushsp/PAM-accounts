@@ -11,6 +11,7 @@ import * as Sharing from 'expo-sharing';
 import AddVendorPopup from '../components/AddVendorPopup';
 import AddPurchasePopup from '../components/AddPurchasePopup';
 import DeleteAuthPopup from '../components/DeleteAuthPopup';
+import apiClient from '../../lib/axios-config';
 
 interface Vendor {
   _id: string;
@@ -54,8 +55,6 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
   const insets = useSafeAreaInsets();
-
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
   // Handle back button
   useEffect(() => {

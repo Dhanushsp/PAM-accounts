@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import KeyboardAwarePopup from './KeyboardAwarePopup';
+import apiClient from '../../lib/axios-config';
 
 interface AddVendorPopupProps {
   token: string;
@@ -47,8 +48,6 @@ export default function AddVendorPopup({ token, onClose }: AddVendorPopupProps) 
   const containerMaxHeight = keyboardVisible 
     ? Math.min(screenHeight * 0.8, availableHeight)
     : screenHeight * 0.95;
-
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
   useEffect(() => {
     fetchAllItems();

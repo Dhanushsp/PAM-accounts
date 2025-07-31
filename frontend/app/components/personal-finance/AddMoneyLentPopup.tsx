@@ -13,7 +13,8 @@ import {
   Platform
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import axios from 'axios';
+import axios from 'axios';import apiClient from '../../lib/axios-config';
+
 
 interface MoneyLentType {
   _id: string;
@@ -40,8 +41,6 @@ export default function AddMoneyLentPopup({ token, onClose, onMoneyLentAdded }: 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
-
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
   useEffect(() => {
     // Set initial screen height

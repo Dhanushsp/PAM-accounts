@@ -11,6 +11,7 @@ import MoneyLentTab from '../components/personal-finance/MoneyLentTab';
 import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import apiClient from '../../lib/axios-config';
 
 interface PersonalFinanceProps {
   onBack: () => void;
@@ -22,8 +23,6 @@ type TabType = 'savings' | 'income' | 'payables' | 'money-lent';
 export default function PersonalFinance({ onBack, token }: PersonalFinanceProps) {
   const [activeTab, setActiveTab] = useState<TabType>('savings');
   const insets = useSafeAreaInsets();
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
-
   // Handle back button
   useEffect(() => {
     const backAction = () => {

@@ -3,7 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddPayablesPopup from './AddPayablesPopup';
-import DatePicker from '../DatePicker';
+import DatePicker from '../DatePicker';import apiClient from '../../lib/axios-config';
+
 
 interface PayableType {
   _id: string;
@@ -31,8 +32,6 @@ export default function PayablesTab({ token }: PayablesTabProps) {
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
-
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
   useEffect(() => {
     fetchPayableTypes();

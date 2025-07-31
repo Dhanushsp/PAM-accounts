@@ -3,6 +3,7 @@ import { View, Text, TextInput, ScrollView, TouchableOpacity, Pressable, StyleSh
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import DatePicker from './DatePicker';
+import apiClient from '../../lib/axios-config';
 
 interface Customer {
   _id: string;
@@ -53,8 +54,6 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
-
-  const BACKEND_URL = process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in';
 
   useEffect(() => {
     // Set initial screen height
