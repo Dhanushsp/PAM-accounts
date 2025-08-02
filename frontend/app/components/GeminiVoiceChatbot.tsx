@@ -12,12 +12,9 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  PermissionsAndroid,
 } from 'react-native';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
-import { Audio } from 'expo-av';
-import Voice from '@react-native-voice/voice';
 import apiClient from '../../lib/axios-config';
 
 interface Message {
@@ -44,7 +41,6 @@ export default function GeminiVoiceChatbot({ token, isVisible, onClose }: Gemini
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [appData, setAppData] = useState<any>(null);
   const [language, setLanguage] = useState<'tamil' | 'english'>('tamil');
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Initialize with welcome message
@@ -63,79 +59,34 @@ export default function GeminiVoiceChatbot({ token, isVisible, onClose }: Gemini
     }
   }, [isVisible]);
 
-  // Request microphone permissions
-  useEffect(() => {
-    requestMicrophonePermission();
-    setupVoiceRecognition();
-  }, []);
-
-  const requestMicrophonePermission = async () => {
-    try {
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: 'Microphone Permission',
-            message: 'This app needs access to your microphone for voice input.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          }
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          Alert.alert('Permission required', 'Microphone permission is required for voice input.');
-        }
-      }
-    } catch (err) {
-      console.error('Error requesting microphone permission:', err);
-    }
-  };
-
-  const setupVoiceRecognition = () => {
-    Voice.onSpeechStart = () => setIsListening(true);
-    Voice.onSpeechEnd = () => setIsListening(false);
-    Voice.onSpeechResults = (e) => {
-      if (e.value && e.value[0]) {
-        setInputText(e.value[0]);
-        setIsListening(false);
-      }
-    };
-    Voice.onSpeechError = (e) => {
-      console.error('Speech recognition error:', e);
-      setIsListening(false);
-      Alert.alert('Voice Error', 'Could not recognize speech. Please try again.');
-    };
-
-    return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
-    };
-  };
-
   // Fetch app data for AI analysis
   const fetchAppData = async () => {
     try {
       const [expensesRes, salesRes, categoriesRes] = await Promise.all([
         apiClient.get('/api/expenses', {
-          headers: { Authorization: token },
           timeout: 15000
         }),
         apiClient.get('/api/sales', {
-          headers: { Authorization: token },
           timeout: 15000
         }),
         apiClient.get('/api/categories', {
-          headers: { Authorization: token },
           timeout: 15000
         })
       ]);
 
       setAppData({
         expenses: expensesRes.data,
-        sales: salesRes.data,
+        sales: salesRes.data.sales || salesRes.data,
         categories: categoriesRes.data
       });
     } catch (error) {
       console.error('Error fetching app data:', error);
+      // Set empty data to prevent errors
+      setAppData({
+        expenses: [],
+        sales: [],
+        categories: []
+      });
     }
   };
 
@@ -162,7 +113,7 @@ export default function GeminiVoiceChatbot({ token, isVisible, onClose }: Gemini
       await fetchAppData();
 
       // Send to Gemini AI backend
-      const response = await apiClient.post(`/api/ai/chat`, {
+      const response = await apiClient.post('/api/ai/chat', {
         message: text.trim(),
         appData: appData,
         context: messages.slice(-5), // Last 5 messages for context
@@ -190,9 +141,13 @@ export default function GeminiVoiceChatbot({ token, isVisible, onClose }: Gemini
       console.error('Error sending message:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "I'm sorry, I'm having trouble processing your request right now. Please try again.",
-        tamilText: "மன்னிக்கவும், உங்கள் கோரிக்கையை செயலாக்குவதில் சிக்கல் உள்ளது. தயவுசெய்து மீண்டும் முயற்சிக்கவும்.",
-        suggestions: "தயவுசெய்து மீண்டும் முயற்சிக்கவும்.",
+        text: error.response?.data?.details 
+          ? `AI Error: ${error.response.data.error}\n\n${error.response.data.details}`
+          : "I'm sorry, I'm having trouble processing your request right now. Please check your Gemini API key and try again.",
+        tamilText: error.response?.data?.details 
+          ? `AI பிழை: ${error.response.data.error}\n\n${error.response.data.details}`
+          : "மன்னிக்கவும், உங்கள் கோரிக்கையை செயலாக்குவதில் சிக்கல் உள்ளது. உங்கள் Gemini API key ஐ சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
+        suggestions: "API key ஐ சரிபார்க்கவும் மற்றும் மீண்டும் முயற்சிக்கவும்.",
         isUser: false,
         timestamp: new Date(),
         type: 'text'
@@ -207,20 +162,25 @@ export default function GeminiVoiceChatbot({ token, isVisible, onClose }: Gemini
   const startListening = async () => {
     try {
       setIsListening(true);
-      await Voice.start(language === 'tamil' ? 'ta-IN' : 'en-US');
+      Alert.alert(
+        'Voice Recognition Setup',
+        'Voice recognition requires additional setup:\n\n1. Install: npm install @react-native-voice/voice\n2. Configure microphone permissions\n3. Use physical device (not simulator)\n\nFor now, you can type your questions.',
+        [
+          { text: 'Cancel', onPress: () => setIsListening(false) },
+          { text: 'Try Sample', onPress: () => {
+            setIsListening(false);
+            setInputText(language === 'tamil' ? 'என் செலவு சுருக்கத்தை காட்டு' : 'Show me my expense summary');
+          }}
+        ]
+      );
     } catch (error) {
       console.error('Error starting voice recognition:', error);
       setIsListening(false);
-      Alert.alert(
-        'Voice Recognition Error', 
-        'Voice recognition failed. This might be due to:\n\n1. Missing @react-native-voice/voice package\n2. Microphone permissions not granted\n3. Running on simulator (use physical device)\n\nPlease install: npm install @react-native-voice/voice'
-      );
     }
   };
 
   const stopListening = async () => {
     try {
-      await Voice.stop();
       setIsListening(false);
     } catch (error) {
       console.error('Error stopping voice recognition:', error);

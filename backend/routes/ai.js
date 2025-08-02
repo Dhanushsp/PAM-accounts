@@ -7,12 +7,26 @@ const router = express.Router();
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey || apiKey === 'your-gemini-api-key') {
-  console.error('❌ GEMINI_API_KEY is not set. Please add it to your .env file');
-  console.error('   Get your API key from: https://makersuite.google.com/app/apikey');
+  console.error('❌ GEMINI_API_KEY is not set properly in .env file');
+  console.error('   1. Copy backend/.env.example to backend/.env');
+  console.error('   2. Get your API key from: https://makersuite.google.com/app/apikey');
+  console.error('   3. Replace the placeholder with your actual API key');
 }
 
-const genAI = new GoogleGenerativeAI(apiKey || 'your-gemini-api-key');
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+let genAI = null;
+let model = null;
+
+if (apiKey && apiKey !== 'your-gemini-api-key') {
+  try {
+    genAI = new GoogleGenerativeAI(apiKey);
+    model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    console.log('✅ Gemini AI initialized successfully');
+  } catch (error) {
+    console.error('❌ Error initializing Gemini AI:', error);
+  }
+} else {
+  console.warn('⚠️ Gemini AI not initialized - API key missing');
+}
 
 // AI Chat endpoint
 router.post('/chat', auth, async (req, res) => {
@@ -21,6 +35,14 @@ router.post('/chat', auth, async (req, res) => {
     
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Check if Gemini is properly initialized
+    if (!model) {
+      return res.status(500).json({ 
+        error: 'Gemini AI is not properly configured',
+        details: 'Please check your GEMINI_API_KEY in the .env file. Get your API key from: https://makersuite.google.com/app/apikey'
+      });
     }
 
     // Generate response using Gemini AI
@@ -35,13 +57,21 @@ router.post('/chat', auth, async (req, res) => {
     console.error('AI Chat error:', error);
     
     // Check if it's an API key issue
-    if (error.message && error.message.includes('API_KEY')) {
+    if (error.message && (error.message.includes('API_KEY') || error.message.includes('API key'))) {
       res.status(500).json({ 
-        error: 'Gemini API key is invalid or missing. Please check your .env file.',
+        error: 'Invalid Gemini API key',
         details: 'Get your API key from: https://makersuite.google.com/app/apikey'
       });
+    } else if (error.message && error.message.includes('quota')) {
+      res.status(500).json({ 
+        error: 'Gemini API quota exceeded',
+        details: 'Please check your API usage limits in Google AI Studio'
+      });
     } else {
-      res.status(500).json({ error: 'Failed to process AI request' });
+      res.status(500).json({ 
+        error: 'Failed to process AI request',
+        details: error.message || 'Unknown error occurred'
+      });
     }
   }
 });
@@ -49,6 +79,11 @@ router.post('/chat', auth, async (req, res) => {
 // Gemini AI response generation function
 async function generateGeminiResponse(message, appData, context, language) {
   try {
+    // Check if model is available
+    if (!model) {
+      throw new Error('Gemini AI model is not initialized. Please check your API key.');
+    }
+
     // Analyze app data to extract insights
     const insights = analyzeAppData(appData);
     
@@ -90,6 +125,14 @@ Provide suggestions in Tamil:`;
     };
   } catch (error) {
     console.error('Gemini API error:', error);
+    
+    // Provide more specific error messages
+    if (error.message && error.message.includes('API key')) {
+      throw new Error('Invalid API key. Please check your GEMINI_API_KEY in the .env file.');
+    } else if (error.message && error.message.includes('quota')) {
+      throw new Error('API quota exceeded. Please check your usage limits.');
+    }
+    
     return {
       text: "I'm sorry, I'm having trouble processing your request right now. Please try again.",
       tamilText: "மன்னிக்கவும், உங்கள் கோரிக்கையை செயலாக்குவதில் சிக்கல் உள்ளது. தயவுசெய்து மீண்டும் முயற்சிக்கவும்.",

@@ -59,18 +59,24 @@ export default function AIChatbot({ token, isVisible, onClose }: AIChatbotProps)
   const fetchAppData = async () => {
     try {
       const [expensesRes, salesRes, categoriesRes] = await Promise.all([
-        apiClient.get(`/api/expenses`),
-        apiClient.get(`/api/sales`),
-        apiClient.get(`/api/categories`)
+        apiClient.get('/api/expenses'),
+        apiClient.get('/api/sales'),
+        apiClient.get('/api/categories')
       ]);
 
       setAppData({
         expenses: expensesRes.data,
-        sales: salesRes.data,
+        sales: salesRes.data.sales || salesRes.data, // Handle both formats
         categories: categoriesRes.data
       });
     } catch (error) {
       console.error('Error fetching app data:', error);
+      // Set empty data to prevent errors
+      setAppData({
+        expenses: [],
+        sales: [],
+        categories: []
+      });
     }
   };
 
@@ -95,7 +101,7 @@ export default function AIChatbot({ token, isVisible, onClose }: AIChatbotProps)
       await fetchAppData();
 
       // Send to AI backend
-      const response = await apiClient.post(`/api/ai/chat`, {
+      const response = await apiClient.post('/api/ai/chat', {
         message: text.trim(),
         appData: appData,
         context: messages.slice(-5) // Last 5 messages for context
@@ -120,7 +126,9 @@ export default function AIChatbot({ token, isVisible, onClose }: AIChatbotProps)
       console.error('Error sending message:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "I'm sorry, I'm having trouble processing your request right now. Please try again.",
+        text: error.response?.data?.details 
+          ? `AI Error: ${error.response.data.error}\n\n${error.response.data.details}`
+          : "I'm sorry, I'm having trouble processing your request right now. Please check your internet connection and try again.",
         isUser: false,
         timestamp: new Date(),
         type: 'text'
@@ -135,17 +143,14 @@ export default function AIChatbot({ token, isVisible, onClose }: AIChatbotProps)
   const startListening = async () => {
     try {
       setIsListening(true);
-      // Note: expo-speech doesn't include voice recognition
-      // You would need to integrate with a service like Google Speech-to-Text
-      // For now, we'll simulate voice input
       Alert.alert(
-        'Voice Input Not Available',
-        'Voice recognition requires additional setup:\n\n1. Install: npm install @react-native-voice/voice\n2. Configure microphone permissions\n3. Use physical device (not simulator)\n\nFor now, you can type your questions.',
+        'Voice Input Setup Required',
+        'Voice recognition requires:\n\n1. Install: npm install @react-native-voice/voice\n2. Configure microphone permissions\n3. Use physical device (not simulator)\n\nFor now, you can type your questions or use the Gemini Voice Chatbot.',
         [
           { text: 'Cancel', onPress: () => setIsListening(false) },
-          { text: 'Simulate', onPress: () => {
+          { text: 'Try Sample', onPress: () => {
             setIsListening(false);
-            setInputText('Show me my expense summary for this month');
+            setInputText('Show me my business insights');
           }}
         ]
       );

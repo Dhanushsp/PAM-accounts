@@ -17,7 +17,7 @@ import * as Sharing from 'expo-sharing';
 import AddExpensePopup from '../components/AddExpensePopup';
 import CustomersPage from './Customers';
 import Expenses from './Expenses';
-import GeminiVoiceChatbot from '../components/GeminiVoiceChatbot';
+import AIChatbot from '../components/AIChatbot';
 import { useSync } from '../lib/useSync';
 import { getPendingActions, saveData, getData, addPendingAction, KEYS } from '../lib/storage';
 import { getToken } from '../lib/auth';
@@ -902,7 +902,7 @@ export default function Home({ token, onLogout }: HomeProps) {
       )}
 
       {showAIChatbot && (
-        <GeminiVoiceChatbot
+        <AIChatbot
           token={token}
           isVisible={showAIChatbot}
           onClose={() => setShowAIChatbot(false)}
