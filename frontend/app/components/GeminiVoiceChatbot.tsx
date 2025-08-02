@@ -162,15 +162,12 @@ export default function GeminiVoiceChatbot({ token, isVisible, onClose }: Gemini
       await fetchAppData();
 
       // Send to Gemini AI backend
-      const response = await axios.post(
-        `${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/ai/chat`,
-        {
-          message: text.trim(),
-          appData: appData,
-          context: messages.slice(-5), // Last 5 messages for context
-          language: language
-        }
-      );
+      const response = await apiClient.post(`/api/ai/chat`, {
+        message: text.trim(),
+        appData: appData,
+        context: messages.slice(-5), // Last 5 messages for context
+        language: language
+      });
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -214,7 +211,10 @@ export default function GeminiVoiceChatbot({ token, isVisible, onClose }: Gemini
     } catch (error) {
       console.error('Error starting voice recognition:', error);
       setIsListening(false);
-      Alert.alert('Voice Error', 'Could not start voice recognition. Please try again.');
+      Alert.alert(
+        'Voice Recognition Error', 
+        'Voice recognition failed. This might be due to:\n\n1. Missing @react-native-voice/voice package\n2. Microphone permissions not granted\n3. Running on simulator (use physical device)\n\nPlease install: npm install @react-native-voice/voice'
+      );
     }
   };
 

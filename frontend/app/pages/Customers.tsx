@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Pressable, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import axios from 'axios';
+
 import apiClient from '../../lib/axios-config';
 import AddCustomerPopup from '../components/AddCustomerPopup';
 import DeleteAuthPopup from '../components/DeleteAuthPopup';
@@ -83,8 +83,8 @@ export default function Customers({ onBack, token }: CustomersProps) {
     if (!editingCustomer) return;
 
     try {
-      await axios.put(
-        `${BACKEND_URL}/api/customers/${editingCustomer._id}`,
+      await apiClient.put(
+        `/api/customers/${editingCustomer._id}`,
         editForm
       );
       Alert.alert('Success', 'Customer updated successfully');

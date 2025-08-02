@@ -15,8 +15,7 @@ import {
 } from 'react-native';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
-import * as Voice from 'expo-speech';
-import axios from 'axios';import apiClient from '../../lib/axios-config';
+import apiClient from '../../lib/axios-config';
 
 
 interface Message {
@@ -96,14 +95,11 @@ export default function AIChatbot({ token, isVisible, onClose }: AIChatbotProps)
       await fetchAppData();
 
       // Send to AI backend
-      const response = await axios.post(
-        `${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/ai/chat`,
-        {
-          message: text.trim(),
-          appData: appData,
-          context: messages.slice(-5) // Last 5 messages for context
-        }
-      );
+      const response = await apiClient.post(`/api/ai/chat`, {
+        message: text.trim(),
+        appData: appData,
+        context: messages.slice(-5) // Last 5 messages for context
+      });
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -143,8 +139,8 @@ export default function AIChatbot({ token, isVisible, onClose }: AIChatbotProps)
       // You would need to integrate with a service like Google Speech-to-Text
       // For now, we'll simulate voice input
       Alert.alert(
-        'Voice Input',
-        'Voice recognition would be implemented here with a service like Google Speech-to-Text or Azure Speech Services.',
+        'Voice Input Not Available',
+        'Voice recognition requires additional setup:\n\n1. Install: npm install @react-native-voice/voice\n2. Configure microphone permissions\n3. Use physical device (not simulator)\n\nFor now, you can type your questions.',
         [
           { text: 'Cancel', onPress: () => setIsListening(false) },
           { text: 'Simulate', onPress: () => {

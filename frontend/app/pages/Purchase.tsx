@@ -356,20 +356,20 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
 
         {/* List of Purchases Tab */}
         {activeTab === 'purchases' && (
-          <View className="flex-1">
+          <View style={styles.purchasesContainer}>
             {/* Filters */}
-            <View className="bg-white rounded-xl p-4 mb-4 shadow-sm">
-              <Text className="text-lg font-semibold text-gray-800 mb-3">Filters</Text>
+            <View style={styles.filtersContainer}>
+              <Text style={styles.filtersTitle}>Filters</Text>
               
               {/* Item Filter */}
-              <View className="mb-3">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Filter by Item</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+              <View style={styles.filterSection}>
+                <Text style={styles.filterLabel}>Filter by Item</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollView}>
                   <TouchableOpacity
                     onPress={() => setFilterItem('all')}
-                    className={`px-4 py-2 rounded-full mr-2 ${filterItem === 'all' ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    style={[styles.filterButton, filterItem === 'all' && styles.activeFilterButton]}
                   >
-                    <Text className={`text-sm font-medium ${filterItem === 'all' ? 'text-white' : 'text-gray-700'}`}>
+                    <Text style={[styles.filterButtonText, filterItem === 'all' && styles.activeFilterButtonText]}>
                       All Items
                     </Text>
                   </TouchableOpacity>
@@ -377,9 +377,9 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
                     <TouchableOpacity
                       key={item}
                       onPress={() => setFilterItem(item)}
-                      className={`px-4 py-2 rounded-full mr-2 ${filterItem === item ? 'bg-blue-600' : 'bg-gray-200'}`}
+                      style={[styles.filterButton, filterItem === item && styles.activeFilterButton]}
                     >
-                      <Text className={`text-sm font-medium ${filterItem === item ? 'text-white' : 'text-gray-700'}`}>
+                      <Text style={[styles.filterButtonText, filterItem === item && styles.activeFilterButtonText]}>
                         {item}
                       </Text>
                     </TouchableOpacity>
@@ -388,14 +388,14 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
               </View>
 
               {/* Vendor Filter */}
-              <View className="mb-3">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Filter by Vendor</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+              <View style={styles.filterSection}>
+                <Text style={styles.filterLabel}>Filter by Vendor</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollView}>
                   <TouchableOpacity
                     onPress={() => setFilterVendor('all')}
-                    className={`px-4 py-2 rounded-full mr-2 ${filterVendor === 'all' ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    style={[styles.filterButton, filterVendor === 'all' && styles.activeFilterButton]}
                   >
-                    <Text className={`text-sm font-medium ${filterVendor === 'all' ? 'text-white' : 'text-gray-700'}`}>
+                    <Text style={[styles.filterButtonText, filterVendor === 'all' && styles.activeFilterButtonText]}>
                       All Vendors
                     </Text>
                   </TouchableOpacity>
@@ -403,9 +403,9 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
                     <TouchableOpacity
                       key={vendor}
                       onPress={() => setFilterVendor(vendor)}
-                      className={`px-4 py-2 rounded-full mr-2 ${filterVendor === vendor ? 'bg-blue-600' : 'bg-gray-200'}`}
+                      style={[styles.filterButton, filterVendor === vendor && styles.activeFilterButton]}
                     >
-                      <Text className={`text-sm font-medium ${filterVendor === vendor ? 'text-white' : 'text-gray-700'}`}>
+                      <Text style={[styles.filterButtonText, filterVendor === vendor && styles.activeFilterButtonText]}>
                         {vendor}
                       </Text>
                     </TouchableOpacity>
@@ -435,65 +435,65 @@ export default function Purchase({ onBack, token }: PurchaseProps) {
 
             {/* Purchases List */}
             {purchases.length === 0 ? (
-              <View className="flex-1 items-center justify-center">
-                <Text className="text-gray-500 text-lg">No purchases found</Text>
+              <View style={styles.emptyPurchasesContainer}>
+                <Text style={styles.emptyPurchasesText}>No purchases found</Text>
               </View>
             ) : (
-              <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.purchasesScrollView} showsVerticalScrollIndicator={false}>
                 {getFilteredPurchases().map((purchase) => (
                   <View
                     key={purchase._id}
-                    className="bg-white rounded-xl p-5 mb-4 border border-gray-100 shadow-sm"
+                    style={styles.purchaseCard}
                   >
-                    <View className="flex-row justify-between items-start">
-                      <View className="flex-1">
-                        <View className="flex-row justify-between items-start mb-3">
-                          <Text className="text-xl font-bold text-gray-800">
+                    <View style={styles.purchaseHeader}>
+                      <View style={styles.purchaseInfo}>
+                        <View style={styles.purchaseTitleRow}>
+                          <Text style={styles.purchaseTitle}>
                             {purchase.item}
                           </Text>
                           <TouchableOpacity
                             onPress={() => handleDeletePurchase(purchase)}
-                            className="bg-red-100 rounded-full p-2"
+                            style={styles.purchaseDeleteButton}
                           >
                             <MaterialIcons name="delete" size={20} color="#dc2626" />
                           </TouchableOpacity>
                         </View>
-                        <View className="space-y-2">
-                          <View className="flex-row items-center">
+                        <View style={styles.purchaseDetails}>
+                          <View style={styles.purchaseDetailRow}>
                             <MaterialIcons name="business" size={16} color="#6b7280" />
-                            <Text className="text-sm text-gray-600 ml-2">
+                            <Text style={styles.purchaseDetailText}>
                               {purchase.vendorName}
                             </Text>
                           </View>
-                          <View className="flex-row items-center">
+                          <View style={styles.purchaseDetailRow}>
                             <MaterialIcons name="scale" size={16} color="#6b7280" />
-                            <Text className="text-sm text-gray-600 ml-2">
+                            <Text style={styles.purchaseDetailText}>
                               {purchase.quantity} {purchase.unit}
                             </Text>
                           </View>
-                          <View className="flex-row items-center">
+                          <View style={styles.purchaseDetailRow}>
                             <MaterialIcons name="attach-money" size={16} color="#6b7280" />
-                            <Text className="text-sm text-gray-600 ml-2">
+                            <Text style={styles.purchaseDetailText}>
                               ₹{purchase.pricePerUnit} per {purchase.unit}
                             </Text>
                           </View>
-                          <View className="bg-blue-50 rounded-lg p-3 mt-3">
-                            <View className="flex-row justify-between items-center mb-1">
-                              <Text className="text-sm font-medium text-blue-800">Total Price:</Text>
-                              <Text className="text-sm font-bold text-blue-800">₹{purchase.totalPrice.toLocaleString()}</Text>
+                          <View style={styles.purchaseSummary}>
+                            <View style={styles.purchaseSummaryRow}>
+                              <Text style={styles.purchaseSummaryLabel}>Total Price:</Text>
+                              <Text style={styles.purchaseSummaryValue}>₹{purchase.totalPrice.toLocaleString()}</Text>
                             </View>
-                            <View className="flex-row justify-between items-center mb-1">
-                              <Text className="text-sm font-medium text-blue-800">Amount Paid:</Text>
-                              <Text className="text-sm font-bold text-blue-800">₹{purchase.amountPaid.toLocaleString()}</Text>
+                            <View style={styles.purchaseSummaryRow}>
+                              <Text style={styles.purchaseSummaryLabel}>Amount Paid:</Text>
+                              <Text style={styles.purchaseSummaryValue}>₹{purchase.amountPaid.toLocaleString()}</Text>
                             </View>
-                            <View className="flex-row justify-between items-center">
-                              <Text className="text-sm font-medium text-blue-800">Updated Credit:</Text>
-                              <Text className="text-sm font-bold text-blue-800">₹{purchase.updatedCredit.toLocaleString()}</Text>
+                            <View style={styles.purchaseSummaryRow}>
+                              <Text style={styles.purchaseSummaryLabel}>Updated Credit:</Text>
+                              <Text style={styles.purchaseSummaryValue}>₹{purchase.updatedCredit.toLocaleString()}</Text>
                             </View>
                           </View>
-                          <View className="flex-row items-center mt-2">
+                          <View style={styles.purchaseDetailRow}>
                             <MaterialIcons name="event" size={16} color="#6b7280" />
-                            <Text className="text-sm text-gray-600 ml-2">
+                            <Text style={styles.purchaseDetailText}>
                               {new Date(purchase.date).toLocaleDateString('en-IN', {
                                 year: 'numeric',
                                 month: 'short',
@@ -779,5 +779,139 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  // Purchase tab styles
+  purchasesContainer: {
+    flex: 1,
+  },
+  filtersContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  filtersTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937', // gray-800
+    marginBottom: 12,
+  },
+  filterSection: {
+    marginBottom: 12,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151', // gray-700
+    marginBottom: 8,
+  },
+  filterScrollView: {
+    flexDirection: 'row',
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    backgroundColor: '#e5e7eb', // gray-200
+  },
+  activeFilterButton: {
+    backgroundColor: '#2563eb', // blue-600
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151', // gray-700
+  },
+  activeFilterButtonText: {
+    color: '#ffffff',
+  },
+  emptyPurchasesContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyPurchasesText: {
+    color: '#6b7280', // gray-500
+    fontSize: 18,
+  },
+  purchasesScrollView: {
+    flex: 1,
+  },
+  purchaseCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#f3f4f6', // gray-100
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  purchaseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  purchaseInfo: {
+    flex: 1,
+  },
+  purchaseTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  purchaseTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937', // gray-800
+  },
+  purchaseDeleteButton: {
+    backgroundColor: '#fef2f2', // red-100
+    borderRadius: 20,
+    padding: 8,
+  },
+  purchaseDetails: {
+    gap: 8,
+  },
+  purchaseDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  purchaseDetailText: {
+    fontSize: 14,
+    color: '#4b5563', // gray-600
+    marginLeft: 8,
+  },
+  purchaseSummary: {
+    backgroundColor: '#eff6ff', // blue-50
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+  },
+  purchaseSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  purchaseSummaryLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1e40af', // blue-800
+  },
+  purchaseSummaryValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1e40af', // blue-800
   },
 }); 

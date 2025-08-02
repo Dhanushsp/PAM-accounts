@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Pressable, Modal, StyleSheet, Platform, ActivityIndicator, Image, ScrollView, Alert, Keyboard, Dimensions } from 'react-native';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import axios from 'axios';
+
 import DatePicker from './DatePicker';import apiClient from '../../lib/axios-config';
 
 
@@ -257,17 +257,15 @@ export default function AddExpensePopup({ token, onClose }: AddExpensePopupProps
     setIsSubmitting(true);
     setError('');
     try {
-      await axios.post(
-        `${process.env.API_BASE_URL || 'https://api.pamacc.dhanushdev.in'}/api/expenses`,
-        {
-          date,
-          amount: parseFloat(amount),
-          category,
-          subcategory,
-          description,
-          photo: photoUrl,
-        }
-      );
+      await apiClient.post(`/api/expenses`, {
+        date,
+        amount: parseFloat(amount),
+        category,
+        subcategory,
+        description,
+        photo: photoUrl,
+      });
+      Alert.alert('Success', 'Expense added successfully!');
       onClose();
     } catch (err: any) {
       setError('Failed to add expense.');

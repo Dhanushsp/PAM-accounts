@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import axios from 'axios';
+
 import DatePicker from '../components/DatePicker';
 import apiClient from '../../lib/axios-config';
 
@@ -114,7 +114,7 @@ export default function Sales({ token, onBack }: SalesProps) {
       if (filterCustomerId) params.append('customerId', filterCustomerId);
       if (filterCustomerName) params.append('customerName', filterCustomerName);
 
-      const response = await axios.get<SalesResponse>(`${BACKEND_URL}/api/sales?${params}`);
+      const response = await apiClient.get<SalesResponse>(`/api/sales?${params}`);
 
       setSales(response.data.sales);
       setTotalPages(response.data.pagination.totalPages);
@@ -134,7 +134,7 @@ export default function Sales({ token, onBack }: SalesProps) {
       if (filterFromDate) params.append('fromDate', filterFromDate);
       if (filterToDate) params.append('toDate', filterToDate);
 
-      const response = await axios.get<SalesSummary>(`${BACKEND_URL}/api/sales/summary?${params}`);
+      const response = await apiClient.get<SalesSummary>(`/api/sales/summary?${params}`);
 
       setSummary(response.data);
     } catch (error) {

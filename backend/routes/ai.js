@@ -5,7 +5,13 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const router = express.Router();
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'your-gemini-api-key');
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey || apiKey === 'your-gemini-api-key') {
+  console.error('❌ GEMINI_API_KEY is not set. Please add it to your .env file');
+  console.error('   Get your API key from: https://makersuite.google.com/app/apikey');
+}
+
+const genAI = new GoogleGenerativeAI(apiKey || 'your-gemini-api-key');
 const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
 // AI Chat endpoint
@@ -27,7 +33,16 @@ router.post('/chat', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('AI Chat error:', error);
-    res.status(500).json({ error: 'Failed to process AI request' });
+    
+    // Check if it's an API key issue
+    if (error.message && error.message.includes('API_KEY')) {
+      res.status(500).json({ 
+        error: 'Gemini API key is invalid or missing. Please check your .env file.',
+        details: 'Get your API key from: https://makersuite.google.com/app/apikey'
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to process AI request' });
+    }
   }
 });
 

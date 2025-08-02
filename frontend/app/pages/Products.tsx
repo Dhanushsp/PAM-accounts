@@ -3,17 +3,13 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Pressable, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackHandler } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import axios from 'axios';
+
 import apiClient from '../../lib/axios-config';
 import AddProductPopup from '../components/AddProductPopup';
 import DeleteAuthPopup from '../components/DeleteAuthPopup';
-import { useSync } from '../lib/useSync';
-import { getPendingActions, saveData, KEYS } from '../lib/storage';
-import NetInfo from '@react-native-community/netinfo';
 import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-
 
 interface Product {
   _id: string;
@@ -53,7 +49,6 @@ export default function Products({ onBack, token }: ProductsProps) {
       onBack();
       return true;
     };
-
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
   }, [editingProduct, onBack]);
@@ -96,18 +91,34 @@ export default function Products({ onBack, token }: ProductsProps) {
     if (!editingProduct) return;
 
     try {
-      const response = await axios.put(
-        `${BACKEND_URL}/api/products/${editingProduct._id}`,
+      await apiClient.put(
+        `/api/products/${editingProduct._id}`,
         editForm
       );
-      
       Alert.alert('Success', 'Product updated successfully');
       setEditingProduct(null);
-      fetchProducts(); // Refresh the list
+      fetchProducts();
     } catch (error) {
       console.error('Error updating product:', error);
       Alert.alert('Error', 'Failed to update product');
     }
+  };
+
+  const handleDownloadProducts = async () => {
+    if (!products.length) return;
+    const data = products.map(p => ({
+      Name: p.productName,
+      'Price per Pack': p.pricePerPack,
+      'Kgs per Pack': p.kgsPerPack,
+      'Price per Kg': p.pricePerKg,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Products');
+    const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+    const uri = FileSystem.cacheDirectory + 'products.xlsx';
+    await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
+    await Sharing.shareAsync(uri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Download Products' });
   };
 
   const handleDelete = (product: Product) => {
@@ -139,62 +150,11 @@ export default function Products({ onBack, token }: ProductsProps) {
     }
   };
 
-  const calculatePricePerKg = () => {
-    const { pricePerPack, kgsPerPack } = editForm;
-    if (pricePerPack && kgsPerPack && !isNaN(Number(pricePerPack)) && !isNaN(Number(kgsPerPack))) {
-      const perKg = Number(pricePerPack) / Number(kgsPerPack);
-      setEditForm(prev => ({ ...prev, pricePerKg: perKg.toFixed(2) }));
-    }
-  };
-
-  useEffect(() => {
-    calculatePricePerKg();
-  }, [editForm.pricePerPack, editForm.kgsPerPack]);
-
-  // SYNC LOGIC
-  const syncProducts = async () => {
-    // Get pending actions
-    const pending = await getPendingActions();
-    // Only process product actions
-    const productActions = pending.filter(a => a.type && a.entity === 'product');
-    for (const action of productActions) {
-      if (action.op === 'add') {
-        await apiClient.post(`/api/addproducts`, action.data);
-      } else if (action.op === 'edit') {
-        await apiClient.put(`/api/products/${action.id}`, action.data);
-      } else if (action.op === 'delete') {
-        await apiClient.delete(`/api/products/${action.id}`);
-      }
-    }
-    // After syncing, refresh products and cache
-    await fetchProducts();
-    await saveData(KEYS.products, products);
-  };
-
-  const { isOnline, isSyncing, lastSync, hasPending, handleSync } = useSync(syncProducts);
-
-  const handleDownloadProducts = async () => {
-    if (!products.length) return;
-    const data = products.map(p => ({
-      Name: p.productName,
-      'Price per Pack': p.pricePerPack,
-      'Kgs per Pack': p.kgsPerPack,
-      'Price per Kg': p.pricePerKg,
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Products');
-    const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-    const uri = FileSystem.cacheDirectory + 'products.xlsx';
-    await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
-    await Sharing.shareAsync(uri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Download Products' });
-  };
-
   if (editingProduct) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
-          {/* Modernized Header */}
+          {/* Header */}
           <View style={styles.header}>
             <Pressable
               onPress={() => setEditingProduct(null)}
@@ -202,9 +162,7 @@ export default function Products({ onBack, token }: ProductsProps) {
             >
               <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
             </Pressable>
-            <Text style={styles.headerTitle}>
-              Edit Product
-            </Text>
+            <Text style={styles.headerTitle}>Edit Product</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -233,8 +191,9 @@ export default function Products({ onBack, token }: ProductsProps) {
             <TextInput
               placeholder="Price per Kg"
               value={editForm.pricePerKg}
-              editable={false}
-              style={styles.disabledInput}
+              onChangeText={(text) => setEditForm(prev => ({ ...prev, pricePerKg: text }))}
+              keyboardType="numeric"
+              style={styles.input}
             />
             <TouchableOpacity
               onPress={handleUpdate}
@@ -251,72 +210,60 @@ export default function Products({ onBack, token }: ProductsProps) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Modernized Header */}
-        <View className="flex-row items-center justify-between bg-white rounded-2xl shadow-md px-4 py-3 mb-6 mt-1" style={{ elevation: 3 }}>
+        {/* Header */}
+        <View style={styles.header}>
           <Pressable
             onPress={onBack}
-            className="bg-gray-100 rounded-full p-2"
-            style={{ elevation: 2 }}
+            style={styles.backButton}
           >
             <MaterialIcons name="arrow-back" size={22} color="#2563EB" />
           </Pressable>
-          <Text className="text-xl font-extrabold text-blue-700 flex-1 text-center" style={{ letterSpacing: 1 }}>
-            Products
-          </Text>
+          <Text style={styles.headerTitle}>Products</Text>
           <TouchableOpacity
             onPress={handleDownloadProducts}
-            className="bg-gray-100 rounded-full p-2"
-            style={{ elevation: 2 }}
+            style={styles.downloadButton}
           >
             <MaterialIcons name="download" size={22} color="#2563EB" />
           </TouchableOpacity>
         </View>
 
-        {/* Products List */}
+        {/* Product List */}
         {loading ? (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500 text-lg">Loading products...</Text>
+          <View style={styles.centerContainer}>
+            <Text style={styles.loadingText}>Loading products...</Text>
           </View>
         ) : products.length === 0 ? (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500 text-lg">No products found</Text>
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyText}>No products found</Text>
           </View>
         ) : (
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
             {products.map((product) => (
               <View
                 key={product._id}
-                className="bg-white rounded-xl p-4 mb-3 border border-gray-100 shadow-sm"
+                style={styles.productCard}
               >
-                <View className="flex-row justify-between items-start">
-                  <View className="flex-1">
-                    <Text className="text-lg font-semibold text-gray-800 mb-2">
+                <View style={styles.productCardContent}>
+                  <View style={styles.productInfo}>
+                    <Text style={styles.productName}>
                       {product.productName}
                     </Text>
-                    <View className="space-y-1">
-                      <Text className="text-sm text-gray-600">
-                        Price per Pack: ₹{product.pricePerPack}
-                      </Text>
-                      <Text className="text-sm text-gray-600">
-                        Kgs per Pack: {product.kgsPerPack} kg
-                      </Text>
-                      <Text className="text-sm text-gray-600">
-                        Price per Kg: ₹{product.pricePerKg}
-                      </Text>
+                    <View style={styles.productDetails}>
+                      <Text style={styles.productDetailText}>Price per Pack: ₹{product.pricePerPack}</Text>
+                      <Text style={styles.productDetailText}>Kgs per Pack: {product.kgsPerPack} kg</Text>
+                      <Text style={styles.productDetailText}>Price per Kg: ₹{product.pricePerKg}</Text>
                     </View>
                   </View>
-                  <View className="flex-row gap-2 ml-2">
+                  <View style={styles.actionButtons}>
                     <Pressable
                       onPress={() => handleEdit(product)}
-                      className="bg-blue-100 rounded-full p-2"
-                      style={{ elevation: 1 }}
+                      style={styles.editButton}
                     >
                       <MaterialIcons name="edit" size={18} color="#2563EB" />
                     </Pressable>
                     <Pressable
                       onPress={() => handleDelete(product)}
-                      className="bg-red-100 rounded-full p-2"
-                      style={{ elevation: 1 }}
+                      style={styles.deleteButton}
                     >
                       <MaterialIcons name="delete" size={18} color="#dc2626" />
                     </Pressable>
@@ -327,6 +274,8 @@ export default function Products({ onBack, token }: ProductsProps) {
           </ScrollView>
         )}
       </View>
+
+      {/* Add Product Popup */}
       {showAddProductPopup && (
         <AddProductPopup
           token={token}
@@ -350,6 +299,8 @@ export default function Products({ onBack, token }: ProductsProps) {
           message={`Are you sure you want to delete "${productToDelete.productName}"? Please enter your credentials to confirm.`}
         />
       )}
+
+      {/* Add Button */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 12, alignItems: 'center' }}>
         <TouchableOpacity
           style={{
@@ -420,7 +371,6 @@ const styles = StyleSheet.create({
     color: '#1d4ed8',
     flex: 1,
     textAlign: 'center',
-    letterSpacing: 1,
   },
   headerSpacer: {
     width: 40,
@@ -452,18 +402,6 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     backgroundColor: '#f9fafb',
     color: '#1f2937',
-    fontSize: 16,
-  },
-  disabledInput: {
-    width: '100%',
-    marginBottom: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-    backgroundColor: '#f3f4f6',
-    color: '#6b7280',
     fontSize: 16,
   },
   updateButton: {

@@ -36,14 +36,11 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
   const fetchExpenses = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${BACKEND_URL}/api/expenses`, {
-        headers: { Authorization: token },
-      });
-      const data = await response.json();
-      setExpenses(data);
+      const response = await apiClient.get(`/api/expenses`);
+      setExpenses(response.data);
       
       // Extract unique categories
-      const uniqueCategories = [...new Set(data.map((expense: Expense) => expense.category))] as string[];
+      const uniqueCategories = [...new Set(response.data.map((expense: Expense) => expense.category))] as string[];
       setCategories(uniqueCategories);
     } catch (error) {
       console.error('Error fetching expenses:', error);
