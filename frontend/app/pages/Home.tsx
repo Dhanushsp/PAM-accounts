@@ -608,7 +608,38 @@ export default function Home({ token, onLogout }: HomeProps) {
 
   useEffect(() => {
     fetchCustomers();
-  }, [search, sort, filterFromDate, filterToDate]);
+  }, [search, filterFromDate, filterToDate]);
+
+  // Apply sorting to current customers when sort changes
+  useEffect(() => {
+    if (customers.length > 0) {
+      const sortedCustomers = [...customers];
+      
+      if (sort === 'recent') {
+        sortedCustomers.sort((a, b) => {
+          const dateA = getLatestPurchaseDate(a);
+          const dateB = getLatestPurchaseDate(b);
+          if (!dateA && !dateB) return 0;
+          if (!dateA) return 1; // null dates go to the end
+          if (!dateB) return -1;
+          return dateB.getTime() - dateA.getTime(); // descending (recent first)
+        });
+      } else if (sort === 'oldest') {
+        sortedCustomers.sort((a, b) => {
+          const dateA = getLatestPurchaseDate(a);
+          const dateB = getLatestPurchaseDate(b);
+          if (!dateA && !dateB) return 0;
+          if (!dateA) return -1; // null dates go to the beginning
+          if (!dateB) return 1;
+          return dateA.getTime() - dateB.getTime(); // ascending (oldest first)
+        });
+      } else if (sort === 'credit') {
+        sortedCustomers.sort((a, b) => b.credit - a.credit); // descending (highest credit first)
+      }
+      
+      setCustomers(sortedCustomers);
+    }
+  }, [sort]);
 
   // Handle back button press
   useEffect(() => {
@@ -853,14 +884,14 @@ export default function Home({ token, onLogout }: HomeProps) {
           style={[styles.bottomButton, styles.viewSalesButton]}
         >
           <FontAwesome5 name="list" size={16} color="#fff" />
-          <Text style={styles.bottomButtonText}>View Sales</Text>
+          <Text style={styles.bottomButtonText}>Sales</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowExpensePopup(true)}
           style={[styles.bottomButton, styles.expenseButton]}
         >
           <FontAwesome5 name="money-bill-wave" size={16} color="#fff" />
-          <Text style={styles.bottomButtonText}>+ Expense</Text>
+          <Text style={styles.bottomButtonText}>Expense</Text>
         </TouchableOpacity>
         
       </View>
@@ -997,10 +1028,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.98)',
     borderTopWidth: 1,
     borderTopColor: '#dbeafe',
@@ -1012,14 +1043,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 10,
-    gap: 12,
   },
   bottomButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 25,
     shadowColor: '#000',
@@ -1030,7 +1060,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 3,
-    maxWidth: 120,
+    minWidth: 110,
+    maxWidth: 130,
+    marginHorizontal: 4,
   },
   filterContainer: {
     marginBottom: 16,
@@ -1093,7 +1125,7 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
   },
   filterButtonTextSelected: {
     color: '#ffffff',
@@ -1131,7 +1163,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     textAlign: 'center',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
     marginLeft: 8,
   },
   aiAssistantButton: {
@@ -1152,7 +1184,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     textAlign: 'center',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
     marginLeft: 8,
   },
   // Customer List Styles
@@ -1214,7 +1246,8 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     textAlign: 'center',
     fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 8,
+    fontSize: 12,
+    marginLeft: 6,
+    flexShrink: 1,
   },
 });

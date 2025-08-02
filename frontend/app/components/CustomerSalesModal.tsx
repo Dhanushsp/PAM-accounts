@@ -61,8 +61,15 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
         <ScrollView style={styles.salesScroll} contentContainerStyle={{ paddingBottom: 8 }}>
         {customer.sales && customer.sales.length > 0 ? (
           (() => {
-            // Group sales by date
-            const salesByDate = customer.sales.reduce((groups: { [key: string]: Sale[] }, sale: Sale) => {
+            // First, sort all sales by date (latest first)
+            const sortedSales = [...customer.sales].sort((a: Sale, b: Sale) => {
+              const dateA = new Date(a.date).getTime();
+              const dateB = new Date(b.date).getTime();
+              return dateB - dateA; // Descending order (latest first)
+            });
+
+            // Group sales by date after sorting
+            const salesByDate = sortedSales.reduce((groups: { [key: string]: Sale[] }, sale: Sale) => {
               const dateKey = new Date(sale.date).toLocaleDateString('en-IN', {
                 year: 'numeric',
                 month: 'long',
@@ -73,15 +80,21 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
               return groups;
             }, {});
 
-            // Sort dates in descending order and render
-            return Object.entries(salesByDate)
-              .sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime())
-              .map(([dateKey, sales]) => (
-                <View key={dateKey} style={styles.dateGroup}>
-                  <Text style={styles.dateLabel}>{dateKey}</Text>
-                  {sales
-                    .sort((a: Sale, b: Sale) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .map((sale: Sale) => (
+            // Convert to array and sort by the actual date (not the formatted string)
+            const sortedDateEntries = Object.entries(salesByDate)
+              .map(([dateKey, sales]) => ({
+                dateKey,
+                sales,
+                // Use the first sale's date for sorting (all sales in group have same date)
+                sortDate: new Date(sales[0].date).getTime()
+              }))
+              .sort((a, b) => b.sortDate - a.sortDate); // Descending order (latest first)
+
+            // Render the sorted date groups
+            return sortedDateEntries.map(({ dateKey, sales }) => (
+              <View key={dateKey} style={styles.dateGroup}>
+                <Text style={styles.dateLabel}>{dateKey}</Text>
+                {sales.map((sale: Sale) => (
                       <View key={sale._id} style={styles.saleBox}>
                         <View style={styles.saleBoxHeader}>
                           <Text style={styles.saleTime}>
