@@ -232,7 +232,7 @@ export default function AddSale({ onClose, onSaleAdded, onSetSortToRecent, token
                       onPress={() => handleCustomerSelect(c)}
                     style={styles.customerListItem}
                   >
-                    <Text>{c.name}</Text>
+                    <Text style={styles.customerNameText}>{c.name}</Text>
                   </Pressable>
                 ))}
               </ScrollView>
@@ -495,6 +495,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
+  },
+  customerNameText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '500',
   },
   creditText: {
     fontSize: 14,

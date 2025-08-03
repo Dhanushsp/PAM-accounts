@@ -3,7 +3,9 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddPayablesPopup from './AddPayablesPopup';
-import DatePicker from '../DatePicker';import apiClient from '../../../lib/axios-config';
+import EditPayablesEntry from './EditPayablesEntry';
+import DatePicker from '../DatePicker';
+import apiClient from '../../../lib/axios-config';
 
 
 interface PayableType {
@@ -32,6 +34,10 @@ export default function PayablesTab({ token }: PayablesTabProps) {
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
+  
+  // Edit states
+  const [editingEntry, setEditingEntry] = useState<PayableEntry | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     fetchPayableTypes();
@@ -87,6 +93,41 @@ export default function PayablesTab({ token }: PayablesTabProps) {
 
   const handleBackToList = () => {
     setSelectedType(null);
+  };
+
+  const handleEditEntry = (entry: PayableEntry) => {
+    setEditingEntry(entry);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteEntry = async (entry: PayableEntry) => {
+    Alert.alert(
+      'Delete Entry',
+      'Are you sure you want to delete this payable entry? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/payable-entries/${entry._id}`);
+              Alert.alert('Success', 'Payable entry deleted successfully');
+              fetchPayableTypes();
+            } catch (error) {
+              console.error('Error deleting payable entry:', error);
+              Alert.alert('Error', 'Failed to delete payable entry');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEntryUpdated = () => {
+    setShowEditModal(false);
+    setEditingEntry(null);
+    fetchPayableTypes();
   };
 
   if (selectedType) {
@@ -171,7 +212,21 @@ export default function PayablesTab({ token }: PayablesTabProps) {
                       day: 'numeric'
                     })}
                   </Text>
-                  <Text style={styles.entryAmount}>₹{entry.amount.toLocaleString()}</Text>
+                  <View style={styles.entryActions}>
+                    <Text style={styles.entryAmount}>₹{entry.amount.toLocaleString()}</Text>
+                    <TouchableOpacity
+                      onPress={() => handleEditEntry(entry)}
+                      style={styles.editButton}
+                    >
+                      <MaterialIcons name="edit" size={16} color="#2563eb" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteEntry(entry)}
+                      style={styles.deleteButton}
+                    >
+                      <MaterialIcons name="delete" size={16} color="#dc2626" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             ))
@@ -275,6 +330,20 @@ export default function PayablesTab({ token }: PayablesTabProps) {
         <AddPayablesPopup
           token={token}
           onClose={() => setShowAddPopup(false)}
+        />
+      )}
+
+      {/* Edit Payables Entry Modal */}
+      {showEditModal && editingEntry && (
+        <EditPayablesEntry
+          entry={editingEntry!}
+          payableTypes={payableTypes}
+          token={token}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingEntry(null);
+          }}
+          onEntryUpdated={handleEntryUpdated}
         />
       )}
     </View>
@@ -495,5 +564,24 @@ const styles = StyleSheet.create({
   },
   activeTypeFilterChipText: {
     color: '#ffffff',
+  },
+  entryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  editButton: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  deleteButton: {
+    backgroundColor: '#fef3f2',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#fca5a5',
   },
 }); 

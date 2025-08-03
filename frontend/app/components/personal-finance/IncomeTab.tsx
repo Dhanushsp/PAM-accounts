@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddIncomePopup from './AddIncomePopup';
+import EditIncomeEntry from './EditIncomeEntry';
 import DatePicker from '../DatePicker';
 import apiClient from '../../../lib/axios-config';
 
@@ -33,6 +34,10 @@ export default function IncomeTab({ token }: IncomeTabProps) {
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
+  
+  // Edit states
+  const [editingEntry, setEditingEntry] = useState<IncomeEntry | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     fetchIncomeTypes();
@@ -88,6 +93,41 @@ export default function IncomeTab({ token }: IncomeTabProps) {
 
   const handleBackToList = () => {
     setSelectedType(null);
+  };
+
+  const handleEditEntry = (entry: IncomeEntry) => {
+    setEditingEntry(entry);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteEntry = async (entry: IncomeEntry) => {
+    Alert.alert(
+      'Delete Entry',
+      'Are you sure you want to delete this income entry? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/income-entries/${entry._id}`);
+              Alert.alert('Success', 'Income entry deleted successfully');
+              fetchIncomeTypes();
+            } catch (error) {
+              console.error('Error deleting income entry:', error);
+              Alert.alert('Error', 'Failed to delete income entry');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEntryUpdated = () => {
+    setShowEditModal(false);
+    setEditingEntry(null);
+    fetchIncomeTypes();
   };
 
   if (selectedType) {
@@ -172,11 +212,25 @@ export default function IncomeTab({ token }: IncomeTabProps) {
                       day: 'numeric'
                     })}
                   </Text>
-                  <View style={styles.entryDetails}>
-                    <Text style={styles.entryAmount}>₹{entry.amount.toLocaleString()}</Text>
-                    {entry.isFromSavings && (
-                      <Text style={styles.savingsIndicator}>(From Savings)</Text>
-                    )}
+                  <View style={styles.entryActions}>
+                    <View style={styles.entryDetails}>
+                      <Text style={styles.entryAmount}>₹{entry.amount.toLocaleString()}</Text>
+                      {entry.isFromSavings && (
+                        <Text style={styles.savingsIndicator}>(From Savings)</Text>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleEditEntry(entry)}
+                      style={styles.editButton}
+                    >
+                      <MaterialIcons name="edit" size={16} color="#2563eb" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteEntry(entry)}
+                      style={styles.deleteButton}
+                    >
+                      <MaterialIcons name="delete" size={16} color="#dc2626" />
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -281,6 +335,20 @@ export default function IncomeTab({ token }: IncomeTabProps) {
         <AddIncomePopup
           token={token}
           onClose={() => setShowAddPopup(false)}
+        />
+      )}
+
+      {/* Edit Income Entry Modal */}
+      {showEditModal && editingEntry && (
+        <EditIncomeEntry
+          entry={editingEntry!}
+          incomeTypes={incomeTypes}
+          token={token}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingEntry(null);
+          }}
+          onEntryUpdated={handleEntryUpdated}
         />
       )}
     </View>
@@ -509,5 +577,24 @@ const styles = StyleSheet.create({
   },
   activeTypeFilterChipText: {
     color: '#ffffff',
+  },
+  entryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  editButton: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  deleteButton: {
+    backgroundColor: '#fef3f2',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#fca5a5',
   },
 }); 

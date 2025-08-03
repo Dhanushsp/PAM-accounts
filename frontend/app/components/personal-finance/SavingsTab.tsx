@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddSavingsPopup from './AddSavingsPopup';
+import EditSavingsEntry from './EditSavingsEntry';
 import DatePicker from '../DatePicker';
 import apiClient from '../../../lib/axios-config';
 
@@ -32,6 +33,10 @@ export default function SavingsTab({ token }: SavingsTabProps) {
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
+  
+  // Edit states
+  const [editingEntry, setEditingEntry] = useState<SavingsEntry | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     fetchSavingsTypes();
@@ -87,6 +92,41 @@ export default function SavingsTab({ token }: SavingsTabProps) {
 
   const handleBackToList = () => {
     setSelectedType(null);
+  };
+
+  const handleEditEntry = (entry: SavingsEntry) => {
+    setEditingEntry(entry);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteEntry = async (entry: SavingsEntry) => {
+    Alert.alert(
+      'Delete Entry',
+      'Are you sure you want to delete this savings entry? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/savings-entries/${entry._id}`);
+              Alert.alert('Success', 'Savings entry deleted successfully');
+              fetchSavingsTypes();
+            } catch (error) {
+              console.error('Error deleting savings entry:', error);
+              Alert.alert('Error', 'Failed to delete savings entry');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEntryUpdated = () => {
+    setShowEditModal(false);
+    setEditingEntry(null);
+    fetchSavingsTypes();
   };
 
   if (selectedType) {
@@ -171,12 +211,40 @@ export default function SavingsTab({ token }: SavingsTabProps) {
                       day: 'numeric'
                     })}
                   </Text>
-                  <Text style={styles.entryAmount}>₹{entry.amount.toLocaleString()}</Text>
+                  <View style={styles.entryActions}>
+                    <Text style={styles.entryAmount}>₹{entry.amount.toLocaleString()}</Text>
+                    <TouchableOpacity
+                      onPress={() => handleEditEntry(entry)}
+                      style={styles.editButton}
+                    >
+                      <MaterialIcons name="edit" size={16} color="#2563eb" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteEntry(entry)}
+                      style={styles.deleteButton}
+                    >
+                      <MaterialIcons name="delete" size={16} color="#dc2626" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             ))
           )}
         </ScrollView>
+
+        {/* Edit Savings Entry Modal */}
+        {showEditModal && editingEntry && (
+          <EditSavingsEntry
+            entry={editingEntry!}
+            savingsTypes={savingsTypes}
+            token={token}
+            onClose={() => {
+              setShowEditModal(false);
+              setEditingEntry(null);
+            }}
+            onEntryUpdated={handleEntryUpdated}
+          />
+        )}
       </View>
     );
   }
@@ -495,5 +563,34 @@ const styles = StyleSheet.create({
   },
   activeTypeFilterChipText: {
     color: '#ffffff',
+  },
+  entryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  editButton: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  deleteButton: {
+    backgroundColor: '#fef2f2',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  typeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  typeEntries: {
+    fontSize: 12,
+    color: '#6b7280',
   },
 }); 

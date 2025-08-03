@@ -43,6 +43,7 @@ import payableTypesRoutes from './routes/payable-types.js';
 import payableEntriesRoutes from './routes/payable-entries.js';
 import moneyLentTypesRoutes from './routes/money-lent-types.js';
 import moneyLentEntriesRoutes from './routes/money-lent-entries.js';
+import priceHistoryRoutes from './routes/price-history.js';
 
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/purchases", purchaseRoutes);
@@ -54,6 +55,7 @@ app.use("/api/payable-types", payableTypesRoutes);
 app.use("/api/payable-entries", payableEntriesRoutes);
 app.use("/api/money-lent-types", moneyLentTypesRoutes);
 app.use("/api/money-lent-entries", moneyLentEntriesRoutes);
+app.use("/api/price-history", priceHistoryRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is working');

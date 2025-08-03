@@ -3,7 +3,9 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AddMoneyLentPopup from './AddMoneyLentPopup';
-import DatePicker from '../DatePicker';import apiClient from '../../../lib/axios-config';
+import EditMoneyLentEntry from './EditMoneyLentEntry';
+import DatePicker from '../DatePicker';
+import apiClient from '../../../lib/axios-config';
 
 
 interface MoneyLentType {
@@ -32,6 +34,10 @@ export default function MoneyLentTab({ token }: MoneyLentTabProps) {
   const [filterFromDate, setFilterFromDate] = useState<Date | null>(null);
   const [filterToDate, setFilterToDate] = useState<Date | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
+  
+  // Edit states
+  const [editingEntry, setEditingEntry] = useState<MoneyLentEntry | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     fetchMoneyLentTypes();
@@ -87,6 +93,41 @@ export default function MoneyLentTab({ token }: MoneyLentTabProps) {
 
   const handleBackToList = () => {
     setSelectedType(null);
+  };
+
+  const handleEditEntry = (entry: MoneyLentEntry) => {
+    setEditingEntry(entry);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteEntry = async (entry: MoneyLentEntry) => {
+    Alert.alert(
+      'Delete Entry',
+      'Are you sure you want to delete this money lent entry? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/money-lent-entries/${entry._id}`);
+              Alert.alert('Success', 'Money lent entry deleted successfully');
+              fetchMoneyLentTypes();
+            } catch (error) {
+              console.error('Error deleting money lent entry:', error);
+              Alert.alert('Error', 'Failed to delete money lent entry');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEntryUpdated = () => {
+    setShowEditModal(false);
+    setEditingEntry(null);
+    fetchMoneyLentTypes();
   };
 
   if (selectedType) {
@@ -147,20 +188,34 @@ export default function MoneyLentTab({ token }: MoneyLentTabProps) {
               <Text style={styles.emptyText}>No entries found</Text>
             </View>
           ) : (
-            filteredEntries.map((entry) => (
-              <View key={entry._id} style={styles.entryCard}>
-                <View style={styles.entryHeader}>
-                  <Text style={styles.entryDate}>
-                    {new Date(entry.date).toLocaleDateString('en-IN', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric'
-                    })}
-                  </Text>
-                  <Text style={styles.entryAmount}>₹{entry.amount.toLocaleString()}</Text>
-                </View>
-              </View>
-            ))
+                         filteredEntries.map((entry) => (
+               <View key={entry._id} style={styles.entryCard}>
+                 <View style={styles.entryHeader}>
+                   <Text style={styles.entryDate}>
+                     {new Date(entry.date).toLocaleDateString('en-IN', {
+                       year: 'numeric',
+                       month: 'short',
+                       day: 'numeric'
+                     })}
+                   </Text>
+                   <View style={styles.entryActions}>
+                     <Text style={styles.entryAmount}>₹{entry.amount.toLocaleString()}</Text>
+                     <TouchableOpacity
+                       onPress={() => handleEditEntry(entry)}
+                       style={styles.editButton}
+                     >
+                       <MaterialIcons name="edit" size={16} color="#2563eb" />
+                     </TouchableOpacity>
+                     <TouchableOpacity
+                       onPress={() => handleDeleteEntry(entry)}
+                       style={styles.deleteButton}
+                     >
+                       <MaterialIcons name="delete" size={16} color="#ef4444" />
+                     </TouchableOpacity>
+                   </View>
+                 </View>
+               </View>
+             ))
           )}
         </ScrollView>
       </View>
@@ -216,6 +271,20 @@ export default function MoneyLentTab({ token }: MoneyLentTabProps) {
         <AddMoneyLentPopup
           token={token}
           onClose={() => setShowAddPopup(false)}
+        />
+      )}
+
+      {/* Edit Money Lent Entry Modal */}
+      {showEditModal && editingEntry && (
+        <EditMoneyLentEntry
+          entry={editingEntry!}
+          moneyLentTypes={moneyLentTypes}
+          token={token}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingEntry(null);
+          }}
+          onEntryUpdated={handleEntryUpdated}
         />
       )}
     </View>
@@ -436,5 +505,24 @@ const styles = StyleSheet.create({
   },
   activeTypeFilterChipText: {
     color: '#ffffff',
+  },
+  entryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  editButton: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  deleteButton: {
+    backgroundColor: '#fef3f2',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#fca5a5',
   },
 }); 

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import ExpenseStats from '../components/ExpenseStats';
+import EditExpense from '../components/EditExpense';
 import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';import apiClient from '../../lib/axios-config';
+import * as Sharing from 'expo-sharing';
+import apiClient from '../../lib/axios-config';
 
 
 interface Expense {
@@ -14,7 +16,7 @@ interface Expense {
   amount: number;
   category: string;
   subcategory: string;
-  description?: string;
+  description: string;
   photo?: string;
 }
 
@@ -31,6 +33,11 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
   const [currentView, setCurrentView] = useState<'expenses' | 'stats'>('expenses');
   const [filterType, setFilterType] = useState<'daily' | 'monthly' | 'yearly'>('daily');
   const [showFilterModal, setShowFilterModal] = useState(false);
+  
+  // Edit states
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  
   const insets = useSafeAreaInsets();
 
   const fetchExpenses = async () => {
@@ -59,7 +66,7 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
     : expenses.filter(expense => expense.category === selectedCategory);
 
   // Grouping logic
-  let groupedExpenses: { [key: string]: Expense[] } | { [key: string]: { total: number, items: Expense[] } } = {};
+  let groupedExpenses: { [key: string]: Expense[] | { total: number, items: Expense[] } } = {};
   let sortedKeys: string[] = [];
 
   if (filterType === 'daily') {
@@ -100,25 +107,45 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
     sortedKeys = Object.keys(groupedExpenses).sort((a, b) => Number(b) - Number(a));
   }
 
-  const renderDateGroup = ({ item: date }: { item: string }) => (
-    <View style={styles.dateGroup}>
-      <Text style={styles.dateHeader}>{date}</Text>
-      <View style={styles.dateExpenses}>
-        {groupedExpenses[date].map((expense) => (
-          <View key={expense._id} style={styles.expenseItem}>
-            <View style={styles.expenseHeader}>
-              <View style={styles.expenseInfo}>
-                <Text style={styles.expenseCategory}>{expense.category}</Text>
-                <Text style={styles.expenseSubcategory}>{expense.subcategory}</Text>
-                {expense.description && <Text style={styles.expenseDescription}>{expense.description}</Text>}
+  const renderDateGroup = ({ item: date }: { item: string }) => {
+    const expenses = groupedExpenses[date];
+    if (Array.isArray(expenses)) {
+      return (
+        <View style={styles.dateGroup}>
+          <Text style={styles.dateHeader}>{date}</Text>
+          <View style={styles.dateExpenses}>
+            {expenses.map((expense) => (
+              <View key={expense._id} style={styles.expenseItem}>
+                <View style={styles.expenseHeader}>
+                  <View style={styles.expenseInfo}>
+                    <Text style={styles.expenseCategory}>{expense.category}</Text>
+                    <Text style={styles.expenseSubcategory}>{expense.subcategory}</Text>
+                    {expense.description && <Text style={styles.expenseDescription}>{expense.description}</Text>}
+                  </View>
+                  <View style={styles.expenseActions}>
+                    <Text style={styles.expenseAmount}>₹{expense.amount}</Text>
+                    <TouchableOpacity
+                      onPress={() => handleEditExpense(expense)}
+                      style={styles.editButton}
+                    >
+                      <MaterialIcons name="edit" size={16} color="#2563eb" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteExpense(expense)}
+                      style={styles.deleteButton}
+                    >
+                      <MaterialIcons name="delete" size={16} color="#dc2626" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-              <Text style={styles.expenseAmount}>₹{expense.amount}</Text>
-            </View>
+            ))}
           </View>
-        ))}
-      </View>
-    </View>
-  );
+        </View>
+      );
+    }
+    return null;
+  };
 
   const handleDownloadExpenses = async () => {
     if (!expenses.length) return;
@@ -136,6 +163,41 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
     const uri = FileSystem.cacheDirectory + 'expenses.xlsx';
     await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
     await Sharing.shareAsync(uri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Download Expenses' });
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteExpense = async (expense: Expense) => {
+    Alert.alert(
+      'Delete Expense',
+      'Are you sure you want to delete this expense? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/expenses/${expense._id}`);
+              Alert.alert('Success', 'Expense deleted successfully');
+              fetchExpenses();
+            } catch (error) {
+              console.error('Error deleting expense:', error);
+              Alert.alert('Error', 'Failed to delete expense');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleExpenseUpdated = () => {
+    setShowEditModal(false);
+    setEditingExpense(null);
+    fetchExpenses();
   };
 
   if (currentView === 'stats') {
@@ -257,6 +319,19 @@ export default function Expenses({ token, onBack }: ExpensesProps) {
           )
         )}
       </View>
+
+      {/* Edit Expense Modal */}
+      {showEditModal && editingExpense && (
+        <EditExpense
+          expense={editingExpense}
+          token={token}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingExpense(null);
+          }}
+          onExpenseUpdated={handleExpenseUpdated}
+        />
+      )}
 
       {/* Bottom Navigation */}
       <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 12 }]}>
@@ -392,6 +467,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#dc2626',
+  },
+  expenseActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  editButton: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  deleteButton: {
+    backgroundColor: '#fef3f2',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#fca5a5',
   },
   emptyText: {
     textAlign: 'center',

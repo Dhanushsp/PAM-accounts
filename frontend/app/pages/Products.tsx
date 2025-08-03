@@ -7,6 +7,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import apiClient from '../../lib/axios-config';
 import AddProductPopup from '../components/AddProductPopup';
 import DeleteAuthPopup from '../components/DeleteAuthPopup';
+import PriceUpdatePopup from '../components/PriceUpdatePopup';
+import PriceHistoryDisplay from '../components/PriceHistoryDisplay';
 import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -36,7 +38,9 @@ export default function Products({ onBack, token }: ProductsProps) {
   });
   const [showAddProductPopup, setShowAddProductPopup] = useState(false);
   const [showDeleteAuthPopup, setShowDeleteAuthPopup] = useState(false);
+  const [showPriceUpdatePopup, setShowPriceUpdatePopup] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [productToUpdatePrice, setProductToUpdatePrice] = useState<Product | null>(null);
   const insets = useSafeAreaInsets();
 
   // Handle back button
@@ -102,6 +106,15 @@ export default function Products({ onBack, token }: ProductsProps) {
       console.error('Error updating product:', error);
       Alert.alert('Error', 'Failed to update product');
     }
+  };
+
+  const handlePriceUpdate = (product: Product) => {
+    setProductToUpdatePrice(product);
+    setShowPriceUpdatePopup(true);
+  };
+
+  const handlePriceUpdated = () => {
+    fetchProducts();
   };
 
   const handleDownloadProducts = async () => {
@@ -262,6 +275,12 @@ export default function Products({ onBack, token }: ProductsProps) {
                       <MaterialIcons name="edit" size={18} color="#2563EB" />
                     </Pressable>
                     <Pressable
+                      onPress={() => handlePriceUpdate(product)}
+                      style={styles.updatePriceButton}
+                    >
+                      <MaterialIcons name="attach-money" size={18} color="#2563EB" />
+                    </Pressable>
+                    <Pressable
                       onPress={() => handleDelete(product)}
                       style={styles.deleteButton}
                     >
@@ -269,6 +288,7 @@ export default function Products({ onBack, token }: ProductsProps) {
                     </Pressable>
                   </View>
                 </View>
+                                 <PriceHistoryDisplay productId={product._id} productName={product.productName} />
               </View>
             ))}
           </ScrollView>
@@ -299,6 +319,19 @@ export default function Products({ onBack, token }: ProductsProps) {
           message={`Are you sure you want to delete "${productToDelete.productName}"? Please enter your credentials to confirm.`}
         />
       )}
+
+             {/* Price Update Popup */}
+       {showPriceUpdatePopup && productToUpdatePrice && (
+         <PriceUpdatePopup
+           product={productToUpdatePrice}
+           token={token}
+           onClose={() => {
+             setShowPriceUpdatePopup(false);
+             setProductToUpdatePrice(null);
+           }}
+           onPriceUpdated={handlePriceUpdated}
+         />
+       )}
 
       {/* Add Button */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 12, alignItems: 'center' }}>
@@ -475,6 +508,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   editButton: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 1,
+  },
+  updatePriceButton: {
     backgroundColor: '#dbeafe',
     borderRadius: 20,
     padding: 8,
