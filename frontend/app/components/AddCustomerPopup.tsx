@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet, Alert, 
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import apiClient from '../../lib/axios-config';
+import DatePicker from './DatePicker';
 
 interface AddCustomerPopupProps {
   token: string;
@@ -134,13 +135,19 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded, edit
               placeholderTextColor="#888"
             />
 
-            <TextInput
-              placeholder="Join Date (YYYY-MM-DD)"
-              value={form.joinDate}
-              onChangeText={v => handleChange('joinDate', v)}
-              style={styles.input}
-              placeholderTextColor="#888"
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Join Date</Text>
+              <DatePicker
+                value={new Date(form.joinDate)}
+                onDateChange={(selectedDate) => {
+                  if (selectedDate) {
+                    handleChange('joinDate', selectedDate.toISOString().split('T')[0]);
+                  }
+                }}
+                placeholder="Select Join Date"
+                style={styles.datePicker}
+              />
+            </View>
 
             <TouchableOpacity
               onPress={handleSubmit}
@@ -257,5 +264,17 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  datePicker: {
+    marginBottom: 0,
   },
 });
