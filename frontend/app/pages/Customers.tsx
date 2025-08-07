@@ -38,6 +38,7 @@ export default function Customers({ onBack, token }: CustomersProps) {
     credit: '',
     joinDate: ''
   });
+  const [isUpdating, setIsUpdating] = useState(false);
   const [showAddCustomerPopup, setShowAddCustomerPopup] = useState(false);
   const [showDeleteAuthPopup, setShowDeleteAuthPopup] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
@@ -105,8 +106,9 @@ export default function Customers({ onBack, token }: CustomersProps) {
   };
 
   const handleUpdate = async () => {
-    if (!editingCustomer) return;
+    if (!editingCustomer || isUpdating) return;
 
+    setIsUpdating(true);
     try {
       await apiClient.put(
         `/api/customers/${editingCustomer._id}`,
@@ -118,6 +120,8 @@ export default function Customers({ onBack, token }: CustomersProps) {
     } catch (error) {
       console.error('Error updating customer:', error);
       Alert.alert('Error', 'Failed to update customer');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -222,9 +226,12 @@ export default function Customers({ onBack, token }: CustomersProps) {
             </View>
             <TouchableOpacity
               onPress={handleUpdate}
-              style={styles.updateButton}
+              disabled={isUpdating}
+              style={[styles.updateButton, isUpdating && styles.updateButtonDisabled]}
             >
-              <Text style={styles.updateButtonText}>Update Customer</Text>
+              <Text style={styles.updateButtonText}>
+                {isUpdating ? 'Updating...' : 'Update Customer'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -477,6 +484,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 18,
+  },
+  updateButtonDisabled: {
+    backgroundColor: '#9ca3af',
   },
   // Customer List Styles
   centerContainer: {

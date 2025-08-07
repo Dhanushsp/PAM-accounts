@@ -36,6 +36,7 @@ export default function Products({ onBack, token }: ProductsProps) {
     kgsPerPack: '',
     pricePerKg: ''
   });
+  const [isUpdating, setIsUpdating] = useState(false);
   const [showAddProductPopup, setShowAddProductPopup] = useState(false);
   const [showDeleteAuthPopup, setShowDeleteAuthPopup] = useState(false);
   const [showPriceUpdatePopup, setShowPriceUpdatePopup] = useState(false);
@@ -92,8 +93,9 @@ export default function Products({ onBack, token }: ProductsProps) {
   };
 
   const handleUpdate = async () => {
-    if (!editingProduct) return;
+    if (!editingProduct || isUpdating) return;
 
+    setIsUpdating(true);
     try {
       await apiClient.put(
         `/api/products/${editingProduct._id}`,
@@ -105,6 +107,8 @@ export default function Products({ onBack, token }: ProductsProps) {
     } catch (error) {
       console.error('Error updating product:', error);
       Alert.alert('Error', 'Failed to update product');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -210,9 +214,12 @@ export default function Products({ onBack, token }: ProductsProps) {
             />
             <TouchableOpacity
               onPress={handleUpdate}
-              style={styles.updateButton}
+              disabled={isUpdating}
+              style={[styles.updateButton, isUpdating && styles.updateButtonDisabled]}
             >
-              <Text style={styles.updateButtonText}>Update Product</Text>
+              <Text style={styles.updateButtonText}>
+                {isUpdating ? 'Updating...' : 'Update Product'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -453,6 +460,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 18,
+  },
+  updateButtonDisabled: {
+    backgroundColor: '#9ca3af',
   },
   // Product List Styles
   centerContainer: {

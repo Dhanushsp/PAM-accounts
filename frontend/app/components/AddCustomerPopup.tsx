@@ -29,6 +29,7 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded, edit
   // Keyboard detection
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const screenHeight = Dimensions.get('window').height;
 
   useEffect(() => {
@@ -58,6 +59,9 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded, edit
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
     try {
       if (editCustomer) {
         // Edit mode: PUT request
@@ -77,6 +81,8 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded, edit
       } else {
         Alert.alert('Error', 'Failed to save customer. Please try again.');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -151,9 +157,15 @@ export default function AddCustomerPopup({ token, onClose, onCustomerAdded, edit
 
             <TouchableOpacity
               onPress={handleSubmit}
-              style={styles.submitButton}
+              disabled={isSubmitting}
+              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
             >
-              <Text style={styles.submitButtonText}>{editCustomer ? 'Save' : 'Submit'}</Text>
+              <Text style={styles.submitButtonText}>
+                {isSubmitting 
+                  ? (editCustomer ? 'Updating...' : 'Adding...') 
+                  : (editCustomer ? 'Save' : 'Submit')
+                }
+              </Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -255,6 +267,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 16,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9ca3af',
   },
   scrollView: {
     paddingHorizontal: 24,

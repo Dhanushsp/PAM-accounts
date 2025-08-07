@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Pressable, StyleSheet, TextInput, Alert, Modal } from 'react-native';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import DatePicker from './DatePicker';
-import EditSaleModal from './EditSaleModal';
 import apiClient from '../../lib/axios-config';
 
 interface Product {
@@ -17,12 +16,7 @@ interface Sale {
   _id: string;
   date: string;
   saleType?: string;
-  products: Array<{
-    _id: string;
-    productName: string;
-    quantity: number;
-    price: number;
-  }>;
+  products: Product[];
   totalPrice: number;
   amountReceived: number;
   paymentMethod: string;
@@ -43,7 +37,7 @@ interface CustomerSalesModalProps {
   token: string;
 }
 
-export default function CustomerSalesModal({ customer, onClose, onEditSale, onRefresh, token }: CustomerSalesModalProps) {
+export default function EnhancedCustomerSalesModal({ customer, onClose, onEditSale, onRefresh, token }: CustomerSalesModalProps) {
   const [activeTab, setActiveTab] = useState<'history' | 'addSale' | 'amountReceived'>('history');
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Array<{ _id: string; name: string }>>([]);
@@ -70,11 +64,6 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
   const [otherAmount, setOtherAmount] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmittingAmount, setIsSubmittingAmount] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-
-  // Edit Sale states
-  const [editingSale, setEditingSale] = useState<Sale | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -190,14 +179,14 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
   };
 
   const handleSubmitAmountReceived = async () => {
-    if (!amountReceivedValue.trim() && !otherAmount.trim()) {
-      Alert.alert('Error', 'Please enter at least one amount');
-      return;
-    }
-
-    const totalAmount = (parseFloat(amountReceivedValue) || 0) + (parseFloat(otherAmount) || 0);
+    if (isSubmittingAmount) return;
+    
+    const amount = parseFloat(amountReceivedValue) || 0;
+    const other = parseFloat(otherAmount) || 0;
+    const totalAmount = amount + other;
+    
     if (totalAmount <= 0) {
-      Alert.alert('Error', 'Total amount must be greater than 0');
+      Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
 
@@ -207,43 +196,25 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
     }
 
     setIsSubmittingAmount(true);
+
     try {
-      const response = await apiClient.put(`/api/customers/${customer._id}`, {
-        credit: customer.credit - totalAmount,
-        amountReceived: {
-          amount: totalAmount,
-          date: selectedDate,
-          description: description.trim() || 'Amount received',
-          amountReceived: parseFloat(amountReceivedValue) || 0,
-          otherAmount: parseFloat(otherAmount) || 0
-        }
+      // Update customer credit
+      await apiClient.put(`/api/customers/${customer._id}`, {
+        credit: customer.credit - totalAmount
       });
 
-      if (response.data.success) {
-        Alert.alert('Success', 'Amount received updated successfully!');
-        setAmountReceivedValue('');
-        setOtherAmount('');
-        setDescription('');
-        onClose();
-        if (onRefresh) onRefresh();
-      }
+      Alert.alert('Success', 'Amount received successfully!');
+      setAmountReceivedValue('');
+      setOtherAmount('');
+      setDescription('');
+      setActiveTab('history');
+      if (onRefresh) onRefresh();
     } catch (error: any) {
       console.error('Error updating amount received:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to update amount received');
+      Alert.alert('Error', 'Failed to update amount received');
     } finally {
       setIsSubmittingAmount(false);
     }
-  };
-
-  const handleEditSale = (sale: Sale) => {
-    setEditingSale(sale);
-    setShowEditModal(true);
-  };
-
-  const handleSaleUpdated = () => {
-    setShowEditModal(false);
-    setEditingSale(null);
-    if (onRefresh) onRefresh();
   };
 
   if (!customer) return null;
@@ -343,7 +314,7 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
                             )}
                           </View>
                           <View style={styles.productsList}>
-                            {sale.products.map((product) => (
+                            {sale.products.map((product: Product) => (
                               <Text key={product._id} style={styles.productText}>
                                 • {product.productName} <Text style={styles.productQty}>x{product.quantity}</Text> <Text style={styles.productPrice}>₹{product.price}</Text>
                               </Text>
@@ -359,7 +330,7 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
                             </View>
                           </View>
                           <TouchableOpacity
-                            onPress={() => handleEditSale(sale)}
+                            onPress={() => onEditSale(sale)}
                             style={styles.editButton}
                           >
                             <FontAwesome name="edit" size={14} color="#2563EB" />
@@ -516,16 +487,6 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
               <View style={styles.creditInfo}>
                 <Text style={styles.creditLabel}>Current Credit:</Text>
                 <Text style={styles.creditValue}>₹{customer.credit}</Text>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Date</Text>
-                                 <DatePicker
-                   value={new Date(selectedDate)}
-                   onDateChange={(date) => setSelectedDate(date ? date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0])}
-                   placeholder="Select Date"
-                   style={styles.datePicker}
-                 />
               </View>
 
               <View style={styles.inputGroup}>
@@ -1001,4 +962,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1e40af',
   },
-});
+}); 

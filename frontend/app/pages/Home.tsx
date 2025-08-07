@@ -873,13 +873,6 @@ export default function Home({ token, onLogout }: HomeProps) {
       {/* Fixed Bottom Action Buttons */}
       <View style={[styles.bottomContainer, { paddingBottom: insets.bottom }]}>
         <TouchableOpacity
-          onPress={() => setShowSalesPopup(true)}
-          style={[styles.bottomButton, styles.saleButton]}
-        >
-          <FontAwesome5 name="plus" size={16} color="#fff" />
-          <Text style={styles.bottomButtonText}>Sale</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
           onPress={() => handleNavigation('sales')}
           style={[styles.bottomButton, styles.viewSalesButton]}
         >
@@ -893,7 +886,6 @@ export default function Home({ token, onLogout }: HomeProps) {
           <FontAwesome5 name="money-bill-wave" size={16} color="#fff" />
           <Text style={styles.bottomButtonText}>Expense</Text>
         </TouchableOpacity>
-        
       </View>
 
       {/* Popups and SideNav remain unchanged */}

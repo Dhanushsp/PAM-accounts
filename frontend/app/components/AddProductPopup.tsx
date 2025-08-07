@@ -28,6 +28,7 @@ export default function AddProductPopup({ token, onClose, onProductAdded, editPr
   // Keyboard detection
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const screenHeight = Dimensions.get('window').height;
 
   useEffect(() => {
@@ -65,6 +66,9 @@ export default function AddProductPopup({ token, onClose, onProductAdded, editPr
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
     try {
       const res = await apiClient.post(`/api/addproducts`, form);
       Alert.alert('Success', res.data.message || "Product added!");
@@ -77,6 +81,8 @@ export default function AddProductPopup({ token, onClose, onProductAdded, editPr
       } else {
         Alert.alert('Error', 'Failed to add product. Please try again.');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -147,9 +153,12 @@ export default function AddProductPopup({ token, onClose, onProductAdded, editPr
 
             <TouchableOpacity
               onPress={handleSubmit}
-              style={styles.submitButton}
+              disabled={isSubmitting}
+              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
             >
-              <Text style={styles.submitButtonText}>Submit</Text>
+              <Text style={styles.submitButtonText}>
+                {isSubmitting ? 'Adding...' : 'Submit'}
+              </Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -262,6 +271,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 16,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9ca3af',
   },
   scrollView: {
     paddingHorizontal: 24,

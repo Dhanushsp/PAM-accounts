@@ -23,6 +23,7 @@ interface DeleteAuthPopupProps {
 export default function DeleteAuthPopup({ onClose, onConfirm, title, message }: DeleteAuthPopupProps) {
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const screenHeight = Dimensions.get('window').height;
@@ -48,12 +49,20 @@ export default function DeleteAuthPopup({ onClose, onConfirm, title, message }: 
     ? Math.min(screenHeight * 0.8, availableHeight)
     : screenHeight * 0.95;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!mobile.trim() || !password.trim()) {
       Alert.alert('Error', 'Please enter both mobile number and password');
       return;
     }
-    onConfirm(mobile.trim(), password.trim());
+    
+    if (isDeleting) return;
+    
+    setIsDeleting(true);
+    try {
+      await onConfirm(mobile.trim(), password.trim());
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -99,8 +108,14 @@ export default function DeleteAuthPopup({ onClose, onConfirm, title, message }: 
           <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-            <Text style={styles.confirmButtonText}>Delete</Text>
+          <TouchableOpacity 
+            style={[styles.confirmButton, isDeleting && styles.confirmButtonDisabled]} 
+            onPress={handleConfirm}
+            disabled={isDeleting}
+          >
+            <Text style={styles.confirmButtonText}>
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -211,5 +226,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  confirmButtonDisabled: {
+    backgroundColor: '#9ca3af',
   },
 }); 

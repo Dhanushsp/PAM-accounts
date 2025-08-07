@@ -5,6 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 import DatePicker from '../components/DatePicker';
 import EditSale from '../components/EditSale';
+import DeleteAuthPopup from '../components/DeleteAuthPopup';
 import apiClient from '../../lib/axios-config';
 
 interface Sale {
@@ -82,6 +83,10 @@ export default function Sales({ token, onBack }: SalesProps) {
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   
+  // Delete states
+  const [deletingSale, setDeletingSale] = useState<Sale | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
   const insets = useSafeAreaInsets();
   
   useEffect(() => {
@@ -237,10 +242,32 @@ export default function Sales({ token, onBack }: SalesProps) {
   };
 
   const handleSaleUpdated = () => {
-    setShowEditModal(false);
-    setEditingSale(null);
     fetchSales();
     fetchSummary();
+    setShowEditModal(false);
+    setEditingSale(null);
+  };
+
+  const handleDeleteSale = (sale: Sale) => {
+    setDeletingSale(sale);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingSale) return;
+    
+    try {
+      await apiClient.delete(`/api/sales/${deletingSale._id}`);
+      Alert.alert('Success', 'Sale deleted successfully!');
+      fetchSales();
+      fetchSummary();
+    } catch (error: any) {
+      console.error('Error deleting sale:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to delete sale');
+    } finally {
+      setShowDeleteModal(false);
+      setDeletingSale(null);
+    }
   };
 
   // Safety check for token
@@ -449,8 +476,7 @@ export default function Sales({ token, onBack }: SalesProps) {
                 <View style={styles.saleFooter}>
                   <View style={styles.paymentInfo}>
                     <MaterialIcons name="attach-money" size={14} color="#64748b" />
-                    <Text style={styles.totalPrice}>₹{sale.totalPrice || 0}</Text>
-                    <Text style={styles.amountReceived}>/ ₹{sale.amountReceived || 0}</Text>
+                    <Text style={styles.amountReceived}>₹{sale.amountReceived || 0}</Text>
                   </View>
                   <View style={styles.saleActions}>
                     <View style={styles.paymentMethod}>
@@ -462,6 +488,12 @@ export default function Sales({ token, onBack }: SalesProps) {
                       style={styles.editButton}
                     >
                       <MaterialIcons name="edit" size={16} color="#2563eb" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteSale(sale)}
+                      style={styles.deleteButton}
+                    >
+                      <MaterialIcons name="delete" size={16} color="#dc2626" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -532,6 +564,28 @@ export default function Sales({ token, onBack }: SalesProps) {
       />
     );
   }
+
+      {/* Delete Sale Modal */}
+      {showDeleteModal && deletingSale && (
+        <DeleteAuthPopup
+          title="Delete Sale"
+          message={`Are you sure you want to delete this sale for ${deletingSale?.customerId?.name || 'Unknown Customer'}?`}
+          onConfirm={async (mobile: string, password: string) => {
+            try {
+              // Verify credentials first
+              await apiClient.post('/api/auth/verify', { mobile, password });
+              // If verification successful, proceed with deletion
+              await handleConfirmDelete();
+            } catch (error: any) {
+              Alert.alert('Error', 'Invalid credentials');
+            }
+          }}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setDeletingSale(null);
+          }}
+        />
+      )}
 }
 
 const styles = StyleSheet.create({
@@ -786,6 +840,13 @@ const styles = StyleSheet.create({
     padding: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+  },
+  deleteButton: {
+    backgroundColor: '#fef2f2',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#fecaca',
   },
   pagination: {
     flexDirection: 'row',
