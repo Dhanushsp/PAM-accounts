@@ -7,6 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import apiClient from '../../lib/axios-config';
 import AddCustomerPopup from '../components/AddCustomerPopup';
 import DeleteAuthPopup from '../components/DeleteAuthPopup';
+import DatePicker from '../components/DatePicker';
 import * as XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -34,7 +35,8 @@ export default function Customers({ onBack, token }: CustomersProps) {
   const [editForm, setEditForm] = useState({
     name: '',
     contact: '',
-    credit: ''
+    credit: '',
+    joinDate: ''
   });
   const [showAddCustomerPopup, setShowAddCustomerPopup] = useState(false);
   const [showDeleteAuthPopup, setShowDeleteAuthPopup] = useState(false);
@@ -97,7 +99,8 @@ export default function Customers({ onBack, token }: CustomersProps) {
     setEditForm({
       name: customer.name,
       contact: customer.contact,
-      credit: customer.credit.toString()
+      credit: customer.credit.toString(),
+      joinDate: customer.joinDate
     });
   };
 
@@ -201,6 +204,22 @@ export default function Customers({ onBack, token }: CustomersProps) {
               keyboardType="numeric"
               style={styles.input}
             />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Join Date</Text>
+              <DatePicker
+                value={new Date(editForm.joinDate)}
+                onDateChange={(selectedDate) => {
+                  if (selectedDate) {
+                    setEditForm(prev => ({ 
+                      ...prev, 
+                      joinDate: selectedDate.toISOString().split('T')[0] 
+                    }));
+                  }
+                }}
+                placeholder="Select Join Date"
+                style={styles.datePicker}
+              />
+            </View>
             <TouchableOpacity
               onPress={handleUpdate}
               style={styles.updateButton}
@@ -579,5 +598,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#2563eb',
+  },
+  // Edit Form Additional Styles
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  datePicker: {
+    marginBottom: 0,
   },
 });
