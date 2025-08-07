@@ -26,7 +26,10 @@ interface CustomersProps {
 
 export default function Customers({ onBack, token }: CustomersProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'oldest' | 'newest'>('oldest');
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [editForm, setEditForm] = useState({
     name: '',
@@ -62,6 +65,7 @@ export default function Customers({ onBack, token }: CustomersProps) {
       setLoading(true);
       const response = await apiClient.get(`/api/customers`);
       setCustomers(response.data);
+      setFilteredCustomers(response.data);
     } catch (error) {
       console.error('Error fetching customers:', error);
       Alert.alert('Error', 'Failed to fetch customers');
@@ -69,6 +73,24 @@ export default function Customers({ onBack, token }: CustomersProps) {
       setLoading(false);
     }
   };
+
+  // Filter and sort customers
+  useEffect(() => {
+    let filtered = customers.filter(customer => {
+      const query = searchQuery.toLowerCase();
+      return customer.name.toLowerCase().includes(query) || 
+             customer.contact.toLowerCase().includes(query);
+    });
+
+    // Sort customers by join date
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.joinDate).getTime();
+      const dateB = new Date(b.joinDate).getTime();
+      return sortOrder === 'oldest' ? dateA - dateB : dateB - dateA;
+    });
+
+    setFilteredCustomers(filtered);
+  }, [customers, searchQuery, sortOrder]);
 
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer);
@@ -211,18 +233,53 @@ export default function Customers({ onBack, token }: CustomersProps) {
           </TouchableOpacity>
         </View>
 
+        {/* Search and Sort Bar */}
+        <View style={styles.searchSortContainer}>
+          <View style={styles.searchContainer}>
+            <MaterialIcons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by name or contact..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#9ca3af"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                <MaterialIcons name="close" size={18} color="#6b7280" />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <TouchableOpacity
+            style={styles.sortButton}
+            onPress={() => setSortOrder(sortOrder === 'oldest' ? 'newest' : 'oldest')}
+          >
+            <MaterialIcons 
+              name={sortOrder === 'oldest' ? 'sort-by-alpha' : 'sort-by-alpha'} 
+              size={20} 
+              color="#2563eb" 
+            />
+            <Text style={styles.sortButtonText}>
+              {sortOrder === 'oldest' ? 'Oldest First' : 'Newest First'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Customer List */}
         {loading ? (
           <View style={styles.centerContainer}>
             <Text style={styles.loadingText}>Loading customers...</Text>
           </View>
-        ) : customers.length === 0 ? (
+        ) : filteredCustomers.length === 0 ? (
           <View style={styles.centerContainer}>
-            <Text style={styles.emptyText}>No customers found</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery ? 'No customers found matching your search' : 'No customers found'}
+            </Text>
           </View>
         ) : (
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-            {customers.map((customer) => (
+            {filteredCustomers.map((customer) => (
               <View
                 key={customer._id}
                 style={styles.customerCard}
@@ -466,5 +523,61 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 8,
     elevation: 1,
+  },
+  // Search and Sort Styles
+  searchSortContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1f2937',
+    paddingVertical: 4,
+  },
+  clearButton: {
+    padding: 4,
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    gap: 6,
+  },
+  sortButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2563eb',
   },
 });
