@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons';
 
 import DatePicker from '../components/DatePicker';
-import EditSale from '../components/EditSale';
+import EditSaleModal from '../components/EditSaleModal';
 import DeleteAuthPopup from '../components/DeleteAuthPopup';
 import apiClient from '../../lib/axios-config';
 
@@ -54,6 +54,22 @@ interface SalesResponse {
   };
 }
 
+// Shape expected by EditSaleModal
+interface ModalSale {
+  _id: string;
+  date: string;
+  saleType?: string;
+  products: Array<{
+    _id: string;
+    productName: string;
+    quantity: number;
+    price: number;
+  }>;
+  totalPrice: number;
+  amountReceived: number;
+  paymentMethod: string;
+}
+
 interface SalesProps {
   token: string;
   onBack: () => void;
@@ -80,7 +96,7 @@ export default function Sales({ token, onBack }: SalesProps) {
   const [customers, setCustomers] = useState<Array<{ _id: string; name: string }>>([]);
   
   // Edit states
-  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [editingSale, setEditingSale] = useState<ModalSale | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   
   // Delete states
@@ -237,7 +253,24 @@ export default function Sales({ token, onBack }: SalesProps) {
   };
 
   const handleEditSale = (sale: Sale) => {
-    setEditingSale(sale);
+    // Convert to the minimal shape expected by EditSaleModal
+    const pm = (sale.paymentMethod || '').toLowerCase();
+    const normalizedPaymentMethod: 'cash' | 'online' = pm === 'cash' ? 'cash' : 'online';
+    const convertedSale: ModalSale = {
+      _id: sale._id,
+      date: sale.date,
+      saleType: sale.saleType,
+      products: sale.products.map((p) => ({
+        _id: p.productName, // fallback id since API items may not include _id
+        productName: p.productName,
+        quantity: p.quantity,
+        price: p.price,
+      })),
+      totalPrice: sale.totalPrice,
+      amountReceived: sale.amountReceived,
+      paymentMethod: normalizedPaymentMethod,
+    };
+    setEditingSale(convertedSale);
     setShowEditModal(true);
   };
 
@@ -527,6 +560,41 @@ export default function Sales({ token, onBack }: SalesProps) {
           </>
                  )}
        </ScrollView>
+
+       {/* Edit Sale Modal */}
+       {showEditModal && editingSale && (
+         <EditSaleModal
+           sale={editingSale}
+           onClose={() => {
+             setShowEditModal(false);
+             setEditingSale(null);
+           }}
+           onSaleUpdated={handleSaleUpdated}
+           token={token}
+         />
+       )}
+
+       {/* Delete Sale Modal */}
+       {showDeleteModal && deletingSale && (
+         <DeleteAuthPopup
+           title="Delete Sale"
+           message={`Are you sure you want to delete this sale for ${deletingSale?.customerId?.name || 'Unknown Customer'}?`}
+           onConfirm={async (mobile: string, password: string) => {
+             try {
+               // Verify credentials first
+               await apiClient.post('/api/auth/verify', { mobile, password });
+               // If verification successful, proceed with deletion
+               await handleConfirmDelete();
+             } catch (error: any) {
+               Alert.alert('Error', 'Invalid credentials');
+             }
+           }}
+           onClose={() => {
+             setShowDeleteModal(false);
+             setDeletingSale(null);
+           }}
+         />
+       )}
        </View>
      </SafeAreaView>
     );
@@ -549,43 +617,6 @@ export default function Sales({ token, onBack }: SalesProps) {
       </SafeAreaView>
     );
   }
-
-  // Edit Sale Modal
-  if (showEditModal && editingSale) {
-    return (
-      <EditSale
-        sale={editingSale!}
-        onClose={() => {
-          setShowEditModal(false);
-          setEditingSale(null);
-        }}
-        onSaleUpdated={handleSaleUpdated}
-        token={token}
-      />
-    );
-  }
-
-      {/* Delete Sale Modal */}
-      {showDeleteModal && deletingSale && (
-        <DeleteAuthPopup
-          title="Delete Sale"
-          message={`Are you sure you want to delete this sale for ${deletingSale?.customerId?.name || 'Unknown Customer'}?`}
-          onConfirm={async (mobile: string, password: string) => {
-            try {
-              // Verify credentials first
-              await apiClient.post('/api/auth/verify', { mobile, password });
-              // If verification successful, proceed with deletion
-              await handleConfirmDelete();
-            } catch (error: any) {
-              Alert.alert('Error', 'Invalid credentials');
-            }
-          }}
-          onClose={() => {
-            setShowDeleteModal(false);
-            setDeletingSale(null);
-          }}
-        />
-      )}
 }
 
 const styles = StyleSheet.create({

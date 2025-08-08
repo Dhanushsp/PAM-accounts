@@ -932,6 +932,14 @@ export default function Home({ token, onLogout }: HomeProps) {
         />
       )}
 
+      {/* Side Navigation */}
+      <SideNav
+        isOpen={isSideNavOpen}
+        onClose={() => setIsSideNavOpen(false)}
+        onLogout={onLogout}
+        onNavigate={handleNavigation}
+      />
+
       {selectedCustomer && (
         <CustomerSalesModal
           customer={selectedCustomer as any}
@@ -940,14 +948,6 @@ export default function Home({ token, onLogout }: HomeProps) {
           onRefresh={() => fetchCustomerDetails(selectedCustomer._id)}
         />
       )}
-
-      {/* Side Navigation */}
-      <SideNav
-        isOpen={isSideNavOpen}
-        onClose={() => setIsSideNavOpen(false)}
-        onLogout={onLogout}
-        onNavigate={handleNavigation}
-      />
     </SafeAreaView>
   );
 }

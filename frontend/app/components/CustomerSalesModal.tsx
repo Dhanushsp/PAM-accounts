@@ -599,6 +599,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
+    // Ensure the overlay sits above other Android views with elevation
+    elevation: 1000,
   },
   container: {
     backgroundColor: 'white',
@@ -610,7 +612,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,
+    // Must be higher than any underlying fixed bars
+    elevation: 100,
   },
   closeButton: {
     position: 'absolute',
