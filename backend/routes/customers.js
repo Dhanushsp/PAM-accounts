@@ -149,6 +149,42 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// POST /api/customers/:id/amount-received - Record amount received and reduce credit
+router.post('/:id/amount-received', async (req, res) => {
+  try {
+    const { amountReceived = 0, otherAmount = 0, description = 'Amount received', date } = req.body;
+    const amount = Number(amountReceived) || 0;
+    const other = Number(otherAmount) || 0;
+    const totalAmount = amount + other;
+
+    if (totalAmount <= 0) {
+      return res.status(400).json({ message: 'Total amount must be greater than 0' });
+    }
+
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+
+    const newCredit = Math.max(0, (Number(customer.credit) || 0) - totalAmount);
+
+    // Update credit and push a payment history entry
+    customer.credit = newCredit;
+    customer.payments = customer.payments || [];
+    customer.payments.push({
+      amount,
+      otherAmount: other,
+      totalAmount,
+      description,
+      date: date ? new Date(date) : new Date(),
+    });
+
+    await customer.save();
+    res.json({ success: true, customer });
+  } catch (err) {
+    console.error('Error recording amount received:', err);
+    res.status(500).json({ message: 'Failed to record amount received' });
+  }
+});
+
 // DELETE /api/customers/:id - Delete customer with authentication
 router.delete('/:id', async (req, res) => {
   try {

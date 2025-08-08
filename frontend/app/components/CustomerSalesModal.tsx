@@ -45,6 +45,11 @@ interface CustomerSalesModalProps {
 
 export default function CustomerSalesModal({ customer, onClose, onEditSale, onRefresh, token }: CustomerSalesModalProps) {
   const [activeTab, setActiveTab] = useState<'history' | 'addSale' | 'amountReceived'>('history');
+
+  // Ensure we re-render when tab changes (guards against stale renders in some RN envs)
+  useEffect(() => {
+    // no-op: state change already triggers re-render; hook exists to avoid eslint unused warnings if needed later
+  }, [activeTab]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Array<{ _id: string; name: string }>>([]);
   
@@ -208,18 +213,14 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
 
     setIsSubmittingAmount(true);
     try {
-      const response = await apiClient.put(`/api/customers/${customer._id}`, {
-        credit: customer.credit - totalAmount,
-        amountReceived: {
-          amount: totalAmount,
-          date: selectedDate,
-          description: description.trim() || 'Amount received',
-          amountReceived: parseFloat(amountReceivedValue) || 0,
-          otherAmount: parseFloat(otherAmount) || 0
-        }
+      const response = await apiClient.post(`/api/customers/${customer._id}/amount-received`, {
+        amountReceived: parseFloat(amountReceivedValue) || 0,
+        otherAmount: parseFloat(otherAmount) || 0,
+        description: description.trim() || 'Amount received',
+        date: selectedDate,
       });
 
-      if (response.data.success) {
+      if (response.data?.success) {
         Alert.alert('Success', 'Amount received updated successfully!');
         setAmountReceivedValue('');
         setOtherAmount('');
@@ -274,27 +275,41 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
         {/* Tab Navigation */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessible
             style={[styles.tab, activeTab === 'history' && styles.activeTab]}
             onPress={() => setActiveTab('history')}
+            onPressIn={() => setActiveTab('history')}
           >
             <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>History</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessible
             style={[styles.tab, activeTab === 'addSale' && styles.activeTab]}
             onPress={() => setActiveTab('addSale')}
+            onPressIn={() => setActiveTab('addSale')}
           >
             <Text style={[styles.tabText, activeTab === 'addSale' && styles.activeTabText]}>Add Sale</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessible
             style={[styles.tab, activeTab === 'amountReceived' && styles.activeTab]}
             onPress={() => setActiveTab('amountReceived')}
+            onPressIn={() => setActiveTab('amountReceived')}
           >
             <Text style={[styles.tabText, activeTab === 'amountReceived' && styles.activeTabText]}>Amount Received</Text>
           </TouchableOpacity>
         </View>
 
         {/* Tab Content */}
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          key={activeTab}
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {activeTab === 'history' && (
             <View>
               {customer.sales && customer.sales.length > 0 ? (

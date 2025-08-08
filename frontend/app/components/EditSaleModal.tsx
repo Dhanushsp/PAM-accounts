@@ -199,7 +199,12 @@ export default function EditSaleModal({ sale, onClose, onSaleUpdated, token }: E
   return (
     <View style={[styles.overlay, { height: screenHeight }]}>
       <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={[styles.container, { maxHeight: screenHeight * 0.9 }]}>
+      <View
+        style={[
+          styles.container,
+          { height: screenHeight * 0.95, maxHeight: screenHeight * 0.95, minHeight: screenHeight * 0.85 },
+        ]}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Edit Sale</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -207,7 +212,7 @@ export default function EditSaleModal({ sale, onClose, onSaleUpdated, token }: E
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
           {error ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{error}</Text>
@@ -390,8 +395,8 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
-    width: '90%',
-    maxWidth: 500,
+    width: '95%',
+    maxWidth: 560,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

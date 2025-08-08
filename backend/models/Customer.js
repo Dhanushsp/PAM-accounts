@@ -6,6 +6,16 @@ const customerSchema = new mongoose.Schema({
   credit: { type: Number, required: true },
   joinDate: { type: Date, default: Date.now },
   lastPurchase: { type: Date, default: Date.now },
+  // History of standalone payments received (outside of specific sale updates)
+  payments: [
+    {
+      amount: { type: Number, required: true },
+      otherAmount: { type: Number, default: 0 },
+      totalAmount: { type: Number, required: true },
+      description: { type: String, default: 'Amount received' },
+      date: { type: Date, default: Date.now },
+    }
+  ],
   sales: [
     {
       saleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale' },

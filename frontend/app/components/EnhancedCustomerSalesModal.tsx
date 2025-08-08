@@ -198,9 +198,10 @@ export default function EnhancedCustomerSalesModal({ customer, onClose, onEditSa
     setIsSubmittingAmount(true);
 
     try {
-      // Update customer credit
-      await apiClient.put(`/api/customers/${customer._id}`, {
-        credit: customer.credit - totalAmount
+      await apiClient.post(`/api/customers/${customer._id}/amount-received`, {
+        amountReceived: amount,
+        otherAmount: other,
+        description: description.trim() || 'Amount received',
       });
 
       Alert.alert('Success', 'Amount received successfully!');
