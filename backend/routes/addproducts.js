@@ -1,6 +1,7 @@
 import express from "express";
 import auth from "../middleware/auth.js";
 import Product from "../models/Product.js";
+import { redis } from "../index.js";
 import mongoose from "mongoose";
 
 const router = express.Router();
@@ -18,6 +19,7 @@ router.post('/', auth, async (req, res) => {
     });
 
     await newProduct.save();
+    if (redis) await redis.del('products:list');
     res.json({ message: 'Product added successfully!' });
   } catch (err) {
     console.error(err);
@@ -27,7 +29,12 @@ router.post('/', auth, async (req, res) => {
 
 router.get('/', auth, async (req, res) => {
   try {
-    const products = await Product.find();
+    if (redis) {
+      const cached = await redis.get('products:list');
+      if (cached) return res.json(JSON.parse(cached));
+    }
+    const products = await Product.find({}, 'productName pricePerPack kgsPerPack pricePerKg').lean();
+    if (redis) await redis.set('products:list', JSON.stringify(products), 'EX', 60);
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch products' });
@@ -44,6 +51,7 @@ router.put('/:id', auth, async (req, res) => {
       { new: true }
     );
     if (!product) return res.status(404).json({ message: 'Product not found' });
+    if (redis) await redis.del('products:list');
     res.json(product);
   } catch (err) {
     res.status(500).json({ message: 'Failed to update product' });
@@ -78,7 +86,7 @@ router.delete('/:id', auth, async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
+    if (redis) await redis.del('products:list');
     res.json({ message: 'Product deleted successfully' });
   } catch (err) {
     console.error('Error deleting product:', err);

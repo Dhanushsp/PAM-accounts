@@ -33,6 +33,15 @@ interface Customer {
   name: string;
   credit: number;
   sales?: Sale[];
+  payments?: Array<{
+    _id?: string;
+    amount: number;
+    otherAmount: number;
+    totalAmount: number;
+    description?: string;
+    date: string;
+    paymentMethod?: string;
+  }>;
 }
 
 interface CustomerSalesModalProps {
@@ -57,6 +66,9 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
   const [selectedCustomerId, setSelectedCustomerId] = useState(customer._id);
   const [selectedTypeId, setSelectedTypeId] = useState('');
   const [showTypeModal, setShowTypeModal] = useState(false);
+  const [showProductPicker, setShowProductPicker] = useState(false);
+  const [productPickerIndex, setProductPickerIndex] = useState<number | null>(null);
+  const [productSearch, setProductSearch] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<Array<{
     productId: string;
     productName: string;
@@ -76,6 +88,7 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
   const [description, setDescription] = useState('');
   const [isSubmittingAmount, setIsSubmittingAmount] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [amountPaymentMethod, setAmountPaymentMethod] = useState<'cash' | 'online'>('cash');
 
   // Edit Sale states
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
@@ -123,8 +136,9 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
       const product = products.find(p => p._id === value);
       if (product) {
         updatedProducts[index].productName = product.productName;
-        // Set default price based on sale type
-        updatedProducts[index].price = updatedProducts[index].saleType === 'kg' ? product.pricePerKg : product.pricePerPack;
+        // Set default price based on sale type and quantity
+        const basePrice = updatedProducts[index].saleType === 'kg' ? product.pricePerKg : product.pricePerPack;
+        updatedProducts[index].price = basePrice * (updatedProducts[index].quantity || 1);
       }
     }
     
@@ -132,12 +146,36 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
     if (field === 'quantity' || field === 'saleType') {
       const product = products.find(p => p._id === updatedProducts[index].productId);
       if (product) {
-        const basePrice = field === 'saleType' && value === 'kg' ? product.pricePerKg : product.pricePerPack;
-        updatedProducts[index].price = basePrice * updatedProducts[index].quantity;
+        const basePrice = updatedProducts[index].saleType === 'kg' ? product.pricePerKg : product.pricePerPack;
+        updatedProducts[index].price = basePrice * (updatedProducts[index].quantity || 1);
       }
     }
     
     setSelectedProducts(updatedProducts);
+  };
+
+  const handleOpenProductPicker = (index: number) => {
+    setProductPickerIndex(index);
+    setProductSearch('');
+    setShowProductPicker(true);
+  };
+
+  const handleSelectProduct = (product: Product) => {
+    if (productPickerIndex === null) return;
+    const index = productPickerIndex;
+    const updated = [...selectedProducts];
+    const current = updated[index];
+    const basePrice = current.saleType === 'kg' ? product.pricePerKg : product.pricePerPack;
+    const quantity = current.quantity || 1;
+    updated[index] = {
+      ...current,
+      productId: product._id,
+      productName: product.productName,
+      price: basePrice * quantity,
+    };
+    setSelectedProducts(updated);
+    setShowProductPicker(false);
+    setProductPickerIndex(null);
   };
 
   const handleRemoveProduct = (index: number) => {
@@ -178,7 +216,8 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
         totalPrice: getTotalPrice(),
         paymentMethod,
         amountReceived: parseFloat(amountReceived) || 0,
-        date
+        date,
+        updatedCredit: getUpdatedCredit()
       };
 
       await apiClient.post('/api/sales', saleData);
@@ -218,6 +257,7 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
         otherAmount: parseFloat(otherAmount) || 0,
         description: description.trim() || 'Amount received',
         date: selectedDate,
+        paymentMethod: amountPaymentMethod,
       });
 
       if (response.data?.success) {
@@ -307,87 +347,134 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
         <ScrollView
           key={activeTab}
           style={styles.content}
+          contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {activeTab === 'history' && (
             <View>
-              {customer.sales && customer.sales.length > 0 ? (
-                (() => {
-                  const sortedSales = [...customer.sales].sort((a: Sale, b: Sale) => {
-                    const dateA = new Date(a.date).getTime();
-                    const dateB = new Date(b.date).getTime();
-                    return dateB - dateA;
+              {(() => {
+                const salesEntries = (customer.sales || []).map((sale: Sale) => ({
+                  type: 'sale' as const,
+                  date: sale.date,
+                  sale,
+                }));
+                const paymentEntries = (customer.payments || []).map((p, idx) => ({
+                  type: 'payment' as const,
+                  date: p.date,
+                  payment: p,
+                  key: p._id || `payment_${idx}`,
+                }));
+
+                const allEntries = [...salesEntries, ...paymentEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                if (allEntries.length === 0) {
+                  return <Text style={styles.noSalesText}>No history available.</Text>;
+                }
+
+                const entriesByDate = allEntries.reduce((groups: { [key: string]: typeof allEntries }, entry) => {
+                  const dateKey = new Date(entry.date).toLocaleDateString('en-IN', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
                   });
+                  if (!groups[dateKey]) groups[dateKey] = [] as any;
+                  (groups[dateKey] as any).push(entry);
+                  return groups;
+                }, {} as { [key: string]: typeof allEntries });
 
-                  const salesByDate = sortedSales.reduce((groups: { [key: string]: Sale[] }, sale: Sale) => {
-                    const dateKey = new Date(sale.date).toLocaleDateString('en-IN', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    });
-                    if (!groups[dateKey]) groups[dateKey] = [];
-                    groups[dateKey].push(sale);
-                    return groups;
-                  }, {});
+                const sortedDateEntries = Object.entries(entriesByDate)
+                  .map(([dateKey, entries]) => ({
+                    dateKey,
+                    entries,
+                    sortDate: new Date(entries[0].date).getTime()
+                  }))
+                  .sort((a, b) => b.sortDate - a.sortDate);
 
-                  const sortedDateEntries = Object.entries(salesByDate)
-                    .map(([dateKey, sales]) => ({
-                      dateKey,
-                      sales,
-                      sortDate: new Date(sales[0].date).getTime()
-                    }))
-                    .sort((a, b) => b.sortDate - a.sortDate);
+                return sortedDateEntries.map(({ dateKey, entries }) => (
+                  <View key={dateKey} style={styles.dateGroup}>
+                    <Text style={styles.dateLabel}>{dateKey}</Text>
+                    {entries.map((entry: any) => {
+                      if (entry.type === 'sale') {
+                        const sale: Sale = entry.sale;
+                        return (
+                          <View key={`sale_${sale._id}`} style={styles.saleBox}>
+                            <View style={styles.saleBoxHeader}>
+                              <Text style={styles.saleTime}>
+                                {new Date(sale.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                              </Text>
+                              {sale.saleType && (
+                                <View style={styles.saleTypeBadge}>
+                                  <Text style={styles.saleTypeBadgeText}>{sale.saleType.toUpperCase()}</Text>
+                                </View>
+                              )}
+                            </View>
+                            <View style={styles.productsList}>
+                              {sale.products.map((product) => {
+                                const unit = Number(product.price) || 0;
+                                const qty = Number(product.quantity) || 0;
+                                const lineTotal = unit * qty;
+                                return (
+                                  <Text key={product._id} style={styles.productText}>
+                                    • {product.productName} <Text style={styles.productQty}>x{qty}</Text> @ ₹{unit} = <Text style={styles.productPrice}>₹{lineTotal}</Text>
+                                  </Text>
+                                );
+                              })}
+                            </View>
+                            <Text style={styles.amountReceivedLine}>Amount received: ₹{sale.amountReceived}</Text>
+                            <View style={styles.saleBoxFooter}>
+                              <Text style={styles.saleTotal}>
+                                <FontAwesome name="rupee" size={12} color="#64748b" /> {sale.totalPrice}
+                              </Text>
+                              <View style={styles.paymentRow}>
+                                <MaterialIcons name="payment" size={14} color="#64748b" />
+                                <Text style={styles.paymentMethod}>{sale.paymentMethod}</Text>
+                              </View>
+                            </View>
+                            <TouchableOpacity onPress={() => handleEditSale(sale)} style={styles.editButton}>
+                              <FontAwesome name="edit" size={14} color="#2563EB" />
+                              <Text style={styles.editButtonText}>Edit</Text>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      }
 
-                  return sortedDateEntries.map(({ dateKey, sales }) => (
-                    <View key={dateKey} style={styles.dateGroup}>
-                      <Text style={styles.dateLabel}>{dateKey}</Text>
-                      {sales.map((sale: Sale) => (
-                        <View key={sale._id} style={styles.saleBox}>
+                      // payment entry
+                      const p = entry.payment;
+                      return (
+                        <View key={`payment_${entry.key}`} style={styles.saleBox}>
                           <View style={styles.saleBoxHeader}>
                             <Text style={styles.saleTime}>
-                              {new Date(sale.date).toLocaleTimeString('en-IN', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                              {new Date(p.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                             </Text>
-                            {sale.saleType && (
-                              <View style={styles.saleTypeBadge}>
-                                <Text style={styles.saleTypeBadgeText}>{sale.saleType.toUpperCase()}</Text>
-                              </View>
-                            )}
+                            <View style={styles.saleTypeBadge}>
+                              <Text style={styles.saleTypeBadgeText}>PAYMENT</Text>
+                            </View>
                           </View>
                           <View style={styles.productsList}>
-                            {sale.products.map((product) => (
-                              <Text key={product._id} style={styles.productText}>
-                                • {product.productName} <Text style={styles.productQty}>x{product.quantity}</Text> <Text style={styles.productPrice}>₹{product.price}</Text>
-                              </Text>
-                            ))}
+                            <Text style={styles.productText}>Amount received: <Text style={styles.productPrice}>₹{(p.totalAmount ?? (p.amount + p.otherAmount)).toFixed(2)}</Text></Text>
+                            {!!p.otherAmount && p.otherAmount > 0 && (
+                              <Text style={styles.productText}>Breakdown: ₹{p.amount} + ₹{p.otherAmount}</Text>
+                            )}
+                            {p.description ? (
+                              <Text style={styles.productText}>Note: {p.description}</Text>
+                            ) : null}
                           </View>
                           <View style={styles.saleBoxFooter}>
                             <Text style={styles.saleTotal}>
-                              <FontAwesome name="rupee" size={12} color="#64748b" /> {sale.totalPrice}  <Text style={styles.saleAmountReceived}>/ {sale.amountReceived}</Text>
+                              <FontAwesome name="rupee" size={12} color="#64748b" /> { (customer.credit ?? 0) }
                             </Text>
                             <View style={styles.paymentRow}>
                               <MaterialIcons name="payment" size={14} color="#64748b" />
-                              <Text style={styles.paymentMethod}>{sale.paymentMethod}</Text>
+                              <Text style={styles.paymentMethod}>{p.paymentMethod || '—'}</Text>
                             </View>
                           </View>
-                          <TouchableOpacity
-                            onPress={() => handleEditSale(sale)}
-                            style={styles.editButton}
-                          >
-                            <FontAwesome name="edit" size={14} color="#2563EB" />
-                            <Text style={styles.editButtonText}>Edit</Text>
-                          </TouchableOpacity>
                         </View>
-                      ))}
-                    </View>
-                  ));
-                })()
-              ) : (
-                <Text style={styles.noSalesText}>No sales history available.</Text>
-              )}
+                      );
+                    })}
+                  </View>
+                ));
+              })()}
             </View>
           )}
 
@@ -415,10 +502,7 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
                       <Text style={styles.subLabel}>Product</Text>
                       <TouchableOpacity
                         style={styles.pickerButton}
-                        onPress={() => {
-                          // Show product selection modal
-                          Alert.alert('Select Product', 'Product selection will be implemented');
-                        }}
+                        onPress={() => handleOpenProductPicker(index)}
                       >
                         <Text style={styles.pickerButtonText}>
                           {product.productName || 'Select Product'}
@@ -543,6 +627,25 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
                  />
               </View>
 
+              {/* Payment Method for Amount Received */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Payment Method</Text>
+                <View style={styles.paymentButtons}>
+                  <TouchableOpacity
+                    style={[styles.paymentButton, amountPaymentMethod === 'cash' && styles.paymentButtonActive]}
+                    onPress={() => setAmountPaymentMethod('cash')}
+                  >
+                    <Text style={[styles.paymentButtonText, amountPaymentMethod === 'cash' && styles.paymentButtonTextActive]}>Cash</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.paymentButton, amountPaymentMethod === 'online' && styles.paymentButtonActive]}
+                    onPress={() => setAmountPaymentMethod('online')}
+                  >
+                    <Text style={[styles.paymentButtonText, amountPaymentMethod === 'online' && styles.paymentButtonTextActive]}>Online</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Amount Received</Text>
                 <TextInput
@@ -598,6 +701,39 @@ export default function CustomerSalesModal({ customer, onClose, onEditSale, onRe
             </View>
           )}
         </ScrollView>
+        {/* Product Picker Modal */}
+        <Modal visible={showProductPicker} transparent animationType="fade">
+          <View style={styles.productPickerOverlay}>
+            <View style={styles.productPickerContainer}>
+              <View style={styles.productPickerHeader}>
+                <Text style={styles.productPickerTitle}>Select Product</Text>
+                <TouchableOpacity onPress={() => setShowProductPicker(false)}>
+                  <MaterialIcons name="close" size={22} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.productSearchInput}
+                placeholder="Search products..."
+                placeholderTextColor="#9CA3AF"
+                value={productSearch}
+                onChangeText={setProductSearch}
+              />
+              <ScrollView style={styles.productList} keyboardShouldPersistTaps="handled">
+                {products
+                  .filter(p => p.productName.toLowerCase().includes(productSearch.toLowerCase()))
+                  .map((p) => (
+                    <TouchableOpacity key={p._id} style={styles.productItem} onPress={() => handleSelectProduct(p)}>
+                      <Text style={styles.productItemName}>{p.productName}</Text>
+                      <Text style={styles.productItemMeta}>Pack: ₹{p.pricePerPack} · Kg: ₹{p.pricePerKg}</Text>
+                    </TouchableOpacity>
+                  ))}
+              </ScrollView>
+              <TouchableOpacity style={styles.closePickerButton} onPress={() => setShowProductPicker(false)}>
+                <Text style={{ color: '#2563eb', fontWeight: '600' }}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </View>
   );
@@ -623,6 +759,8 @@ const styles = StyleSheet.create({
     width: '95%',
     maxWidth: 500,
     maxHeight: '90%',
+    height: '85%',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -751,7 +889,7 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontWeight: '600',
-    color: '#059669',
+    color: '#2563eb',
   },
   saleBoxFooter: {
     flexDirection: 'row',
@@ -767,6 +905,11 @@ const styles = StyleSheet.create({
   saleAmountReceived: {
     color: '#6b7280',
     fontWeight: 'normal',
+  },
+  amountReceivedLine: {
+    fontSize: 14,
+    color: '#059669',
+    marginBottom: 4,
   },
   paymentRow: {
     flexDirection: 'row',
@@ -975,6 +1118,63 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1e40af',
     marginBottom: 4,
+  },
+  productPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  productPickerContainer: {
+    backgroundColor: '#fff',
+    width: '90%',
+    maxWidth: 480,
+    borderRadius: 12,
+    padding: 16,
+  },
+  productPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  productPickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  productSearchInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#111827',
+    marginBottom: 12,
+  },
+  productList: {
+    maxHeight: 320,
+    marginBottom: 12,
+  },
+  productItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  productItemName: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  productItemMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  closePickerButton: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   errorText: {
     color: '#dc2626',

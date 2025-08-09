@@ -1,5 +1,6 @@
 import express from "express";
 import Customer from "../models/Customer.js";
+import { redis } from "../index.js";
 import auth from "../middleware/auth.js";
 import mongoose from "mongoose";
 
@@ -27,8 +28,22 @@ router.get("/", async (req, res) => {
     }
 
     console.log('Sorting by:', sort, 'Sort criteria:', sortBy);
-    const customers = await Customer.find(query).sort(sortBy);
+
+    const cacheKey = redis ? `customers:list:${JSON.stringify({ search, sort })}` : null;
+    if (redis && cacheKey) {
+      const cached = await redis.get(cacheKey);
+      if (cached) return res.json(JSON.parse(cached));
+    }
+
+    const customers = await Customer.find(query, 'name contact credit joinDate lastPurchase')
+      .sort(sortBy)
+      .lean();
     console.log('Customers returned:', customers.length, 'First customer lastPurchase:', customers[0]?.lastPurchase);
+
+    if (redis && cacheKey) {
+      await redis.set(cacheKey, JSON.stringify(customers), 'EX', 30);
+    }
+
     res.json(customers);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch customers", error: err });
@@ -136,10 +151,20 @@ router.get('/:id', async (req, res) => {
 // PUT /api/customers/:id - Update customer
 router.put('/:id', async (req, res) => {
   try {
-    const { name, contact, credit } = req.body;
+    const { name, contact, credit, joinDate } = req.body;
+
+    const update = {};
+    if (name !== undefined) update.name = name;
+    if (contact !== undefined) update.contact = contact;
+    if (credit !== undefined) update.credit = credit;
+    if (joinDate !== undefined) {
+      const parsed = new Date(joinDate);
+      update.joinDate = isNaN(parsed.getTime()) ? new Date() : parsed;
+    }
+
     const customer = await Customer.findByIdAndUpdate(
       req.params.id,
-      { name, contact, credit },
+      update,
       { new: true }
     );
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
@@ -152,7 +177,7 @@ router.put('/:id', async (req, res) => {
 // POST /api/customers/:id/amount-received - Record amount received and reduce credit
 router.post('/:id/amount-received', async (req, res) => {
   try {
-    const { amountReceived = 0, otherAmount = 0, description = 'Amount received', date } = req.body;
+    const { amountReceived = 0, otherAmount = 0, description = 'Amount received', date, paymentMethod } = req.body;
     const amount = Number(amountReceived) || 0;
     const other = Number(otherAmount) || 0;
     const totalAmount = amount + other;
@@ -175,6 +200,7 @@ router.post('/:id/amount-received', async (req, res) => {
       totalAmount,
       description,
       date: date ? new Date(date) : new Date(),
+      paymentMethod: paymentMethod || undefined,
     });
 
     await customer.save();
@@ -182,6 +208,75 @@ router.post('/:id/amount-received', async (req, res) => {
   } catch (err) {
     console.error('Error recording amount received:', err);
     res.status(500).json({ message: 'Failed to record amount received' });
+  }
+});
+
+// GET /api/customers/payments - List payments (amount received entries) with optional filters
+router.get('/payments', async (req, res) => {
+  try {
+    const { fromDate, toDate, customerId, customerName, limit = 50, page = 1 } = req.query;
+
+    const matchCustomer = {};
+    if (customerId) {
+      matchCustomer._id = new mongoose.Types.ObjectId(customerId);
+    } else if (customerName) {
+      matchCustomer.name = { $regex: customerName, $options: 'i' };
+    }
+
+    const dateFilter = {};
+    if (fromDate) dateFilter.$gte = new Date(fromDate);
+    if (toDate) dateFilter.$lte = new Date(toDate);
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const pipeline = [
+      Object.keys(matchCustomer).length ? { $match: matchCustomer } : null,
+      { $unwind: '$payments' },
+      Object.keys(dateFilter).length ? { $match: { 'payments.date': dateFilter } } : null,
+      { $sort: { 'payments.date': -1 } },
+      {
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: parseInt(limit) },
+            {
+              $project: {
+                _id: '$payments._id',
+                customerId: '$_id',
+                customerName: '$name',
+                amount: '$payments.amount',
+                otherAmount: '$payments.otherAmount',
+                totalAmount: '$payments.totalAmount',
+                description: '$payments.description',
+                date: '$payments.date',
+                paymentMethod: '$payments.paymentMethod',
+              }
+            }
+          ],
+          totalCount: [
+            { $count: 'count' }
+          ]
+        }
+      }
+    ].filter(Boolean);
+
+    const aggResult = await Customer.aggregate(pipeline);
+    const data = aggResult[0]?.data || [];
+    const total = aggResult[0]?.totalCount?.[0]?.count || 0;
+
+    res.json({
+      payments: data,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalPayments: total,
+        hasNext: skip + data.length < total,
+        hasPrev: parseInt(page) > 1,
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching payments:', err);
+    res.status(500).json({ message: 'Failed to fetch payments' });
   }
 });
 

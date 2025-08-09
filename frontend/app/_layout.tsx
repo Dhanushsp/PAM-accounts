@@ -7,10 +7,7 @@ import * as SplashScreen from 'expo-splash-screen';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    // Add fallback fonts to prevent timeout issues
-    'System': require('expo-font/build/FontLoader').FontLoader,
-  });
+  const [loaded, error] = useFonts({});
 
   useEffect(() => {
     if (error) {

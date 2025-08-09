@@ -105,7 +105,7 @@ export default function Customers({ onBack, token }: CustomersProps) {
     });
   };
 
-  const handleUpdate = async () => {
+    const handleUpdate = async () => {
     if (!editingCustomer || isUpdating) return;
 
     setIsUpdating(true);
@@ -208,21 +208,23 @@ export default function Customers({ onBack, token }: CustomersProps) {
               keyboardType="numeric"
               style={styles.input}
             />
-            <View style={styles.inputGroup}>
+            <View style={[styles.inputGroup, { zIndex: 1 }]}> 
               <Text style={styles.label}>Join Date</Text>
-              <DatePicker
-                value={new Date(editForm.joinDate)}
-                onDateChange={(selectedDate) => {
-                  if (selectedDate) {
-                    setEditForm(prev => ({ 
-                      ...prev, 
-                      joinDate: selectedDate.toISOString().split('T')[0] 
-                    }));
-                  }
-                }}
-                placeholder="Select Join Date"
-                style={styles.datePicker}
-              />
+              <View style={{ backgroundColor: '#fff' }}>
+                <DatePicker
+                  value={new Date(editForm.joinDate)}
+                  onDateChange={(selectedDate) => {
+                    if (selectedDate) {
+                      setEditForm(prev => ({ 
+                        ...prev, 
+                        joinDate: selectedDate.toISOString().split('T')[0] 
+                      }));
+                    }
+                  }}
+                  placeholder="Select Join Date"
+                  style={[styles.datePicker, { marginBottom: 8 }]}
+                />
+              </View>
             </View>
             <TouchableOpacity
               onPress={handleUpdate}

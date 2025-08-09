@@ -54,6 +54,29 @@ interface SalesResponse {
   };
 }
 
+interface PaymentEntry {
+  _id: string;
+  customerId: string;
+  customerName: string;
+  amount: number;
+  otherAmount: number;
+  totalAmount: number;
+  description?: string;
+  date: string;
+  paymentMethod?: string;
+}
+
+interface PaymentsResponse {
+  payments: PaymentEntry[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalPayments: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
 // Shape expected by EditSaleModal
 interface ModalSale {
   _id: string;
@@ -82,10 +105,13 @@ export default function Sales({ token, onBack }: SalesProps) {
   const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(true);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalSales, setTotalSales] = useState(0);
-  
+  const [payments, setPayments] = useState<PaymentEntry[]>([]);
+  const [totalPaymentsPages, setTotalPaymentsPages] = useState(1);
+
   // Filter states
   const [filterFromDate, setFilterFromDate] = useState('');
   const [filterToDate, setFilterToDate] = useState('');
@@ -94,20 +120,20 @@ export default function Sales({ token, onBack }: SalesProps) {
   const [filterCustomerId, setFilterCustomerId] = useState('');
   const [filterCustomerName, setFilterCustomerName] = useState('');
   const [customers, setCustomers] = useState<Array<{ _id: string; name: string }>>([]);
-  
+
   // Edit states
   const [editingSale, setEditingSale] = useState<ModalSale | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  
+
   // Delete states
   const [deletingSale, setDeletingSale] = useState<Sale | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const insets = useSafeAreaInsets();
-  
+
   useEffect(() => {
     let isMounted = true;
-    
+
     if (token) {
       const loadData = async () => {
         try {
@@ -115,15 +141,16 @@ export default function Sales({ token, onBack }: SalesProps) {
             await fetchCustomers();
             await fetchSales();
             await fetchSummary();
+            await fetchPayments();
           }
         } catch (error) {
           console.error('Error loading sales data:', error);
         }
       };
-      
+
       loadData();
     }
-    
+
     return () => {
       isMounted = false;
     };
@@ -140,6 +167,12 @@ export default function Sales({ token, onBack }: SalesProps) {
       fetchSummary();
     }
   }, [token, filterFromDate, filterToDate]);
+
+  useEffect(() => {
+    if (token) {
+      fetchPayments();
+    }
+  }, [token, filterFromDate, filterToDate, filterCustomerId, filterCustomerName]);
 
   const fetchCustomers = async () => {
     try {
@@ -198,6 +231,24 @@ export default function Sales({ token, onBack }: SalesProps) {
       // Don't show alert for summary errors as they're not critical
     } finally {
       setSummaryLoading(false);
+    }
+  };
+
+  const fetchPayments = async () => {
+    try {
+      setPaymentsLoading(true);
+      const params = new URLSearchParams();
+      if (filterFromDate) params.append('fromDate', filterFromDate);
+      if (filterToDate) params.append('toDate', filterToDate);
+      if (filterCustomerId) params.append('customerId', filterCustomerId);
+      if (filterCustomerName) params.append('customerName', filterCustomerName);
+      const res = await apiClient.get<PaymentsResponse>(`/api/customers/payments?${params.toString()}`);
+      setPayments(res.data.payments || []);
+      setTotalPaymentsPages(res.data.pagination.totalPages || 1);
+    } catch (err) {
+      console.error('Error fetching payments:', err);
+    } finally {
+      setPaymentsLoading(false);
     }
   };
 
@@ -288,7 +339,7 @@ export default function Sales({ token, onBack }: SalesProps) {
 
   const handleConfirmDelete = async () => {
     if (!deletingSale) return;
-    
+
     try {
       await apiClient.delete(`/api/sales/${deletingSale._id}`);
       Alert.alert('Success', 'Sale deleted successfully!');
@@ -329,63 +380,63 @@ export default function Sales({ token, onBack }: SalesProps) {
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#2563eb" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Sales Management</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+            <TouchableOpacity onPress={onBack} style={styles.backButton}>
+              <MaterialIcons name="arrow-back" size={24} color="#2563eb" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Sales Management</Text>
+            <View style={styles.headerSpacer} />
+          </View>
 
-      {/* Filters */}
-      <View style={styles.filtersContainer}>
-        <View style={styles.filterRow}>
-          <DatePicker
-            value={filterFromDate ? new Date(filterFromDate) : null}
-            onDateChange={(date) => setFilterFromDate(date ? date.toISOString().split('T')[0] : '')}
-            placeholder="From Date"
-            style={{ flex: 1, marginRight: 8 }}
-          />
-          <DatePicker
-            value={filterToDate ? new Date(filterToDate) : null}
-            onDateChange={(date) => setFilterToDate(date ? date.toISOString().split('T')[0] : '')}
-            placeholder="To Date"
-            style={{ flex: 1, marginLeft: 8 }}
-          />
-        </View>
-        
-        {/* Customer Name Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputContainer}>
-            <MaterialIcons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by customer name..."
-              value={filterCustomerName}
-              onChangeText={setFilterCustomerName}
-              placeholderTextColor="#9CA3AF"
-            />
-            {filterCustomerName.length > 0 && (
+          {/* Filters */}
+          <View style={styles.filtersContainer}>
+            <View style={styles.filterRow}>
+              <DatePicker
+                value={filterFromDate ? new Date(filterFromDate) : null}
+                onDateChange={(date) => setFilterFromDate(date ? date.toISOString().split('T')[0] : '')}
+                placeholder="From Date"
+                style={{ flex: 1, marginRight: 8 }}
+              />
+              <DatePicker
+                value={filterToDate ? new Date(filterToDate) : null}
+                onDateChange={(date) => setFilterToDate(date ? date.toISOString().split('T')[0] : '')}
+                placeholder="To Date"
+                style={{ flex: 1, marginLeft: 8 }}
+              />
+            </View>
+
+            {/* Customer Name Search Bar */}
+            <View style={styles.searchContainer}>
+              <View style={styles.searchInputContainer}>
+                <MaterialIcons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search by customer name..."
+                  value={filterCustomerName}
+                  onChangeText={setFilterCustomerName}
+                  placeholderTextColor="#9CA3AF"
+                />
+                {filterCustomerName.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setFilterCustomerName('')}
+                    style={styles.clearSearchButton}
+                  >
+                    <MaterialIcons name="close" size={18} color="#6B7280" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Clear Filters Button */}
+            {(filterFromDate || filterToDate || filterCustomerName) && (
               <TouchableOpacity
-                onPress={() => setFilterCustomerName('')}
-                style={styles.clearSearchButton}
+                onPress={clearFilters}
+                style={styles.clearFiltersButton}
               >
-                <MaterialIcons name="close" size={18} color="#6B7280" />
+                <MaterialIcons name="clear" size={16} color="#DC2626" />
+                <Text style={styles.clearFiltersText}>Clear All Filters</Text>
               </TouchableOpacity>
             )}
-          </View>
-        </View>
-        
-        {/* Clear Filters Button */}
-        {(filterFromDate || filterToDate || filterCustomerName) && (
-          <TouchableOpacity
-            onPress={clearFilters}
-            style={styles.clearFiltersButton}
-          >
-            <MaterialIcons name="clear" size={16} color="#DC2626" />
-            <Text style={styles.clearFiltersText}>Clear All Filters</Text>
-          </TouchableOpacity>
-        )}
-        {/* <View style={styles.filterRow}>
+            {/* <View style={styles.filterRow}>
           <TextInput
             style={styles.filterInput}
             placeholder="Sale Type (kg/pack)"
@@ -407,196 +458,229 @@ export default function Sales({ token, onBack }: SalesProps) {
             <Text style={styles.clearButtonText}>Clear Filters</Text>
           </TouchableOpacity>
         </View> */}
-      </View>
+          </View>
 
-      {/* Summary Cards */}
-      {summary && !summaryLoading && (
-        <View style={styles.summaryContainer}>
-          <View style={[styles.summaryCard, styles.cashCard]}>
-            <View style={styles.summaryHeader}>
-              <MaterialIcons name="money" size={16} color="#059669" />
-              <Text style={styles.summaryLabel}>Cash Total</Text>
-            </View>
-            <Text style={styles.summaryValue}>
-              ₹{getCashTotal().toLocaleString()}
-            </Text>
-          </View>
-          <View style={[styles.summaryCard, styles.onlineCard]}>
-            <View style={styles.summaryHeader}>
-              <MaterialIcons name="credit-card" size={16} color="#2563eb" />
-              <Text style={styles.summaryLabel}>Online Total</Text>
-            </View>
-            <Text style={styles.summaryValue}>
-              ₹{getOnlineTotal().toLocaleString()}
-            </Text>
-          </View>
-          <View style={[styles.summaryCard, styles.totalCard]}>
-            <View style={styles.summaryHeader}>
-              <MaterialIcons name="account-balance-wallet" size={16} color="#7c3aed" />
-              <Text style={styles.summaryLabel}>All Total</Text>
-            </View>
-            <Text style={styles.summaryValue}>
-              ₹{(summary.totalRevenue || 0).toLocaleString()}
-            </Text>
-          </View>
-        </View>
-      )}
-      
-      {summaryLoading && (
-        <View style={styles.summaryContainer}>
-          <View style={styles.summaryCard}>
-            <ActivityIndicator size="small" color="#2563eb" />
-            <Text style={styles.summaryLabel}>Loading...</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <ActivityIndicator size="small" color="#2563eb" />
-            <Text style={styles.summaryLabel}>Loading...</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <ActivityIndicator size="small" color="#2563eb" />
-            <Text style={styles.summaryLabel}>Loading...</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Sales List */}
-       <ScrollView style={styles.salesList} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {error ? (
-          <View style={styles.centerContainer}>
-            <MaterialIcons name="error-outline" size={48} color="#dc2626" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              onPress={() => {
-                setError(null);
-                fetchSales();
-                fetchSummary();
-              }}
-              style={styles.retryButton}
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : loading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color="#2563eb" />
-            <Text style={styles.loadingText}>Loading sales...</Text>
-          </View>
-        ) : sales.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <Text style={styles.emptyText}>No sales found</Text>
-          </View>
-        ) : (
-          <>
-            {sales.map((sale) => (
-              <View key={sale._id || Math.random().toString()} style={styles.saleCard}>
-                <View style={styles.saleHeader}>
-                  <Text style={styles.saleDate}>{sale.date ? formatDate(sale.date) : 'No Date'}</Text>
-                  <View style={styles.saleTypeBadge}>
-                    <Text style={styles.saleTypeText}>{sale.saleType?.toUpperCase() || 'N/A'}</Text>
-                  </View>
+          {/* Summary Cards */}
+          {summary && !summaryLoading && (
+            <View style={styles.summaryContainer}>
+              <View style={[styles.summaryCard, styles.cashCard]}>
+                <View style={styles.summaryHeader}>
+                  <MaterialIcons name="money" size={16} color="#059669" />
+                  <Text style={styles.summaryLabel}>Cash Total</Text>
                 </View>
-                
-                <Text style={styles.customerName}>{sale.customerId?.name || 'Unknown Customer'}</Text>
-                
-                <View style={styles.productsContainer}>
-                  {(sale.products || []).map((product, index) => (
-                    <Text key={index} style={styles.productText}>
-                      • {product.productName || 'Unknown Product'} x{product.quantity || 0} @ ₹{product.price || 0}
-                    </Text>
-                  ))}
-                </View>
-                
-                <View style={styles.saleFooter}>
-                  <View style={styles.paymentInfo}>
-                    <MaterialIcons name="attach-money" size={14} color="#64748b" />
-                    <Text style={styles.amountReceived}>₹{sale.amountReceived || 0}</Text>
-                  </View>
-                  <View style={styles.saleActions}>
-                    <View style={styles.paymentMethod}>
-                      <MaterialIcons name="payment" size={16} color="#64748b" />
-                      <Text style={styles.paymentText}>{sale.paymentMethod || 'N/A'}</Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => handleEditSale(sale)}
-                      style={styles.editButton}
-                    >
-                      <MaterialIcons name="edit" size={16} color="#2563eb" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDeleteSale(sale)}
-                      style={styles.deleteButton}
-                    >
-                      <MaterialIcons name="delete" size={16} color="#dc2626" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            ))}
-            
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <View style={styles.pagination}>
-                <TouchableOpacity
-                  onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
-                >
-                  <Text style={styles.paginationButtonText}>Previous</Text>
-                </TouchableOpacity>
-                
-                <Text style={styles.paginationInfo}>
-                  Page {currentPage} of {totalPages}
+                <Text style={styles.summaryValue}>
+                  ₹{getCashTotal().toLocaleString()}
                 </Text>
-                
+              </View>
+              <View style={[styles.summaryCard, styles.onlineCard]}>
+                <View style={styles.summaryHeader}>
+                  <MaterialIcons name="credit-card" size={16} color="#2563eb" />
+                  <Text style={styles.summaryLabel}>Online Total</Text>
+                </View>
+                <Text style={styles.summaryValue}>
+                  ₹{getOnlineTotal().toLocaleString()}
+                </Text>
+              </View>
+              <View style={[styles.summaryCard, styles.totalCard]}>
+                <View style={styles.summaryHeader}>
+                  <MaterialIcons name="account-balance-wallet" size={16} color="#7c3aed" />
+                  <Text style={styles.summaryLabel}>All Total</Text>
+                </View>
+                <Text style={styles.summaryValue}>
+                  ₹{(summary.totalRevenue || 0).toLocaleString()}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {summaryLoading && (
+            <View style={styles.summaryContainer}>
+              <View style={styles.summaryCard}>
+                <ActivityIndicator size="small" color="#2563eb" />
+                <Text style={styles.summaryLabel}>Loading...</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <ActivityIndicator size="small" color="#2563eb" />
+                <Text style={styles.summaryLabel}>Loading...</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <ActivityIndicator size="small" color="#2563eb" />
+                <Text style={styles.summaryLabel}>Loading...</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Sales List */}
+          <ScrollView style={styles.salesList} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {error ? (
+              <View style={styles.centerContainer}>
+                <MaterialIcons name="error-outline" size={48} color="#dc2626" />
+                <Text style={styles.errorText}>{error}</Text>
                 <TouchableOpacity
-                  onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
+                  onPress={() => {
+                    setError(null);
+                    fetchSales();
+                    fetchSummary();
+                  }}
+                  style={styles.retryButton}
                 >
-                  <Text style={styles.paginationButtonText}>Next</Text>
+                  <Text style={styles.retryButtonText}>Retry</Text>
                 </TouchableOpacity>
               </View>
-            )}
-          </>
+            ) : loading ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color="#2563eb" />
+                <Text style={styles.loadingText}>Loading sales...</Text>
+              </View>
+            ) : sales.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <Text style={styles.emptyText}>No sales found</Text>
+              </View>
+            ) : (
+              <>
+                 {sales.map((sale) => (
+                  <View key={sale._id || Math.random().toString()} style={styles.saleCard}>
+                    <View style={styles.saleHeader}>
+                      <Text style={styles.saleDate}>{sale.date ? formatDate(sale.date) : 'No Date'}</Text>
+                      <View>
+                        <TouchableOpacity
+                          onPress={() => handleEditSale(sale)}
+                          style={styles.editButton}
+                        >
+                          <MaterialIcons name="edit" size={16} color="#2563eb" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteSale(sale)}
+                          style={styles.deleteButton}
+                        >
+                          <MaterialIcons name="delete" size={16} color="#dc2626" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <Text style={styles.customerName}>{sale.customerId?.name || 'Unknown Customer'}</Text>
+
+                    <View style={styles.productsContainer}>
+                      {(sale.products || []).map((product, index) => (
+                        <Text key={index} style={styles.productText}>
+                          • {product.productName || 'Unknown Product'} x{product.quantity || 0} @ ₹{product.price || 0}
+                        </Text>
+                      ))}
+                    </View>
+
+                    <View style={styles.saleFooter}>
+                      <View style={styles.paymentInfo}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <MaterialIcons name="attach-money" size={14} color="#64748b" />
+                          <Text style={styles.totalPrice}> ₹{sale.totalPrice || 0}</Text>
+                        </View>
+                        <Text style={styles.amountReceived}>Received: ₹{sale.amountReceived || 0}</Text>
+                      </View>
+                      <View style={styles.saleActions}>
+                        <View style={styles.paymentMethod}>
+                          <MaterialIcons name="payment" size={16} color="#64748b" />
+                          <Text style={styles.paymentText}>{sale.paymentMethod || 'N/A'}</Text>
+                        </View>
+
+                      </View>
+                    </View>
+                  </View>
+                ))}
+
+                 {/* Payments (Amount Received) List */}
+                 {payments.length > 0 && (
+                   <View style={[styles.saleCard, { marginTop: 8 }]}> 
+                     <Text style={[styles.customerName, { marginBottom: 4 }]}>Amount Received Entries</Text>
+                     {payments.map((p) => (
+                       <View key={p._id} style={{ marginBottom: 8 }}>
+                         <Text style={styles.productText}>{formatDate(p.date)}</Text>
+                         <Text style={styles.customerName}>{p.customerName}</Text>
+                         <View style={styles.saleFooter}>
+                           <View style={styles.paymentInfo}>
+                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                               <MaterialIcons name="attach-money" size={14} color="#64748b" />
+                               <Text style={styles.amountReceived}> Received: ₹{(p.totalAmount ?? (p.amount + p.otherAmount))}</Text>
+                             </View>
+                           </View>
+                           <View style={styles.saleActions}>
+                             <View style={styles.paymentMethod}>
+                               <MaterialIcons name="payment" size={16} color="#64748b" />
+                               <Text style={styles.paymentText}>{p.paymentMethod || 'N/A'}</Text>
+                             </View>
+                           </View>
+                         </View>
+                         {p.description ? (
+                           <Text style={styles.productText}>Note: {p.description}</Text>
+                         ) : null}
+                       </View>
+                     ))}
+                   </View>
                  )}
-       </ScrollView>
 
-       {/* Edit Sale Modal */}
-       {showEditModal && editingSale && (
-         <EditSaleModal
-           sale={editingSale}
-           onClose={() => {
-             setShowEditModal(false);
-             setEditingSale(null);
-           }}
-           onSaleUpdated={handleSaleUpdated}
-           token={token}
-         />
-       )}
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <View style={styles.pagination}>
+                    <TouchableOpacity
+                      onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
+                    >
+                      <Text style={styles.paginationButtonText}>Previous</Text>
+                    </TouchableOpacity>
 
-       {/* Delete Sale Modal */}
-       {showDeleteModal && deletingSale && (
-         <DeleteAuthPopup
-           title="Delete Sale"
-           message={`Are you sure you want to delete this sale for ${deletingSale?.customerId?.name || 'Unknown Customer'}?`}
-           onConfirm={async (mobile: string, password: string) => {
-             try {
-               // Verify credentials first
-               await apiClient.post('/api/auth/verify', { mobile, password });
-               // If verification successful, proceed with deletion
-               await handleConfirmDelete();
-             } catch (error: any) {
-               Alert.alert('Error', 'Invalid credentials');
-             }
-           }}
-           onClose={() => {
-             setShowDeleteModal(false);
-             setDeletingSale(null);
-           }}
-         />
-       )}
-       </View>
-     </SafeAreaView>
+                    <Text style={styles.paginationInfo}>
+                      Page {currentPage} of {totalPages}
+                    </Text>
+
+                    <TouchableOpacity
+                      onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
+                    >
+                      <Text style={styles.paginationButtonText}>Next</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+
+          {/* Edit Sale Modal */}
+          {showEditModal && editingSale && (
+            <EditSaleModal
+              sale={editingSale}
+              onClose={() => {
+                setShowEditModal(false);
+                setEditingSale(null);
+              }}
+              onSaleUpdated={handleSaleUpdated}
+              token={token}
+            />
+          )}
+
+          {/* Delete Sale Modal */}
+          {showDeleteModal && deletingSale && (
+            <DeleteAuthPopup
+              title="Delete Sale"
+              message={`Are you sure you want to delete this sale for ${deletingSale?.customerId?.name || 'Unknown Customer'}?`}
+              onConfirm={async (mobile: string, password: string) => {
+                try {
+                  // Verify credentials first
+                  await apiClient.post('/api/auth/verify', { mobile, password });
+                  // If verification successful, proceed with deletion
+                  await handleConfirmDelete();
+                } catch (error: any) {
+                  Alert.alert('Error', 'Invalid credentials');
+                }
+              }}
+              onClose={() => {
+                setShowDeleteModal(false);
+                setDeletingSale(null);
+              }}
+            />
+          )}
+        </View>
+      </SafeAreaView>
     );
   } catch (error) {
     console.error('Error in Sales component:', error);
@@ -832,6 +916,10 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 2,
   },
+  productLineTotal: {
+    fontWeight: '600',
+    color: '#059669',
+  },
   saleFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -844,12 +932,12 @@ const styles = StyleSheet.create({
   totalPrice: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#059669',
+    color: '#2563eb',
     marginLeft: 4,
   },
   amountReceived: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#059669',
   },
   paymentMethod: {
     flexDirection: 'row',

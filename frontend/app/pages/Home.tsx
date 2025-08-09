@@ -884,7 +884,7 @@ export default function Home({ token, onLogout }: HomeProps) {
           style={[styles.bottomButton, styles.expenseButton]}
         >
           <FontAwesome5 name="money-bill-wave" size={16} color="#fff" />
-          <Text style={styles.bottomButtonText}>Expense</Text>
+          <Text style={styles.bottomButtonText}>+ Expense</Text>
         </TouchableOpacity>
       </View>
 
@@ -946,6 +946,7 @@ export default function Home({ token, onLogout }: HomeProps) {
           onClose={() => setSelectedCustomer(null)}
           onEditSale={(sale) => console.log('Edit sale:', sale)}
           onRefresh={() => fetchCustomerDetails(selectedCustomer._id)}
+          token={token}
         />
       )}
     </SafeAreaView>
