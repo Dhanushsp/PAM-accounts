@@ -21,10 +21,4 @@ const saleSchema = new mongoose.Schema({
 
 });
 
-// Indexes to speed up common queries
-saleSchema.index({ date: -1 });
-saleSchema.index({ customerId: 1, date: -1 });
-saleSchema.index({ paymentMethod: 1, date: -1 });
-saleSchema.index({ saleType: 1, date: -1 });
-
 export default mongoose.model('Sale', saleSchema);

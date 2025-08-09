@@ -2,7 +2,7 @@ import express from "express";
 import auth from "../middleware/auth.js";
 import Sale from "../models/Sale.js";
 import Customer from "../models/Customer.js";
-import { redis } from "../index.js";
+ 
 
 const router = express.Router();
 
@@ -67,25 +67,17 @@ router.get('/', auth, async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Cache key
-    const cacheKey = redis ? `sales:list:${JSON.stringify({customerId, customerName, fromDate, toDate, saleType, paymentMethod, limit, page})}` : null;
-    if (redis && cacheKey) {
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        return res.json(JSON.parse(cached));
-      }
-    }
     
-    const sales = await Sale.find(query, 'customerId saleType products totalPrice paymentMethod amountReceived date')
+    
+    const sales = await Sale.find(query)
       .populate('customerId', 'name contact')
       .sort({ date: -1 })
       .limit(parseInt(limit))
-      .skip(skip)
-      .lean();
+      .skip(skip);
 
     const total = await Sale.countDocuments(query);
 
-    const payload = {
+    res.json({
       sales,
       pagination: {
         currentPage: parseInt(page),
@@ -94,13 +86,7 @@ router.get('/', auth, async (req, res) => {
         hasNext: skip + sales.length < total,
         hasPrev: parseInt(page) > 1
       }
-    };
-
-    if (redis && cacheKey) {
-      await redis.set(cacheKey, JSON.stringify(payload), 'EX', 30); // 30s TTL
-    }
-
-    res.json(payload);
+    });
   } catch (err) {
     console.error("❌ Error fetching sales:", err);
     res.status(500).json({ error: 'Failed to fetch sales data' });

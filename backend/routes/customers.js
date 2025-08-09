@@ -1,6 +1,6 @@
 import express from "express";
 import Customer from "../models/Customer.js";
-import { redis } from "../index.js";
+ 
 import auth from "../middleware/auth.js";
 import mongoose from "mongoose";
 
@@ -29,21 +29,8 @@ router.get("/", async (req, res) => {
 
     console.log('Sorting by:', sort, 'Sort criteria:', sortBy);
 
-    const cacheKey = redis ? `customers:list:${JSON.stringify({ search, sort })}` : null;
-    if (redis && cacheKey) {
-      const cached = await redis.get(cacheKey);
-      if (cached) return res.json(JSON.parse(cached));
-    }
-
-    const customers = await Customer.find(query, 'name contact credit joinDate lastPurchase')
-      .sort(sortBy)
-      .lean();
+    const customers = await Customer.find(query).sort(sortBy);
     console.log('Customers returned:', customers.length, 'First customer lastPurchase:', customers[0]?.lastPurchase);
-
-    if (redis && cacheKey) {
-      await redis.set(cacheKey, JSON.stringify(customers), 'EX', 30);
-    }
-
     res.json(customers);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch customers", error: err });

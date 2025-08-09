@@ -23,7 +23,4 @@ const productSchema = new mongoose.Schema({
     }
 });
 
-// Index commonly queried field
-productSchema.index({ productName: 1 });
-
 export default mongoose.model('Product', productSchema);

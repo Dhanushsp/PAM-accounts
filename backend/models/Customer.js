@@ -40,10 +40,4 @@ const customerSchema = new mongoose.Schema({
   ]
 });
 
-// Indexes for faster lookups and sorting
-customerSchema.index({ name: 1 });
-customerSchema.index({ contact: 1 });
-customerSchema.index({ lastPurchase: -1 });
-customerSchema.index({ credit: -1 });
-
 export default mongoose.model('Customer', customerSchema);
